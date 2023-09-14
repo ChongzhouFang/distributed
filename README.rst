@@ -27,3 +27,6 @@ A library for distributed computation.  See documentation_ for more details.
    :target: https://pypi.python.org/pypi/distributed/
 .. |NumFOCUS| image:: https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A
    :target: https://www.numfocus.org/
+
+
+Changing: ./distributed/scheduler.py
