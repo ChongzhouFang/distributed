@@ -1380,6 +1380,16 @@ class TaskState:
     # Instances not part of slots since class variable
     _instances: ClassVar[weakref.WeakSet[TaskState]] = weakref.WeakSet()
 
+
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes   start.           "
+    """"""""""""""""""""""""""""""""""""""""""
+    # A string of hash for scheduling purposes. 
+    schedule_hash: str
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes   end.             "
+    """"""""""""""""""""""""""""""""""""""""""
+
     def __init__(
         self,
         key: str,
@@ -1514,7 +1524,17 @@ class TaskState:
         chain of ~200+ tasks.
         """
         return recursive_to_dict(self, exclude=exclude, members=True)
-
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes   start.           "
+    """"""""""""""""""""""""""""""""""""""""""
+    # generates schedule_hash
+    def generate_schedule_hash(self):
+        client_id = self.who_wants[0].client_key
+        operation = self.key
+        self.schedule_hash = hash(client_id + '-' + operation)
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes   end.             "
+    """"""""""""""""""""""""""""""""""""""""""
 
 class Transition(NamedTuple):
     """An entry in :attr:`SchedulerState.transition_log`"""

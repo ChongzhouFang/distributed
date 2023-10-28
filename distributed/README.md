@@ -18,3 +18,23 @@ Potential Classes and Methods to Change:
 ├── Scheduler
 │   ├── decide_worker
 ```
+
+Actual Changes:
+Inside
+```
+""""""""""""""""""""""""""""""""""""""""""
+"             Changes   start.           "
+""""""""""""""""""""""""""""""""""""""""""
+```
+and
+```
+""""""""""""""""""""""""""""""""""""""""""
+"             Changes   end.             "
+""""""""""""""""""""""""""""""""""""""""""
+```
+
+Change lists:
+```
+├── TaskState: add element schedule_hash (problem: where is the key generated?)
+│   ├── Added function generate_schedule_hash()
+```
