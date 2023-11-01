@@ -140,6 +140,37 @@ if TYPE_CHECKING:
 
     from dask.highlevelgraph import HighLevelGraph
 
+
+""""""""""""""""""""""""""""""""""""""""""
+"             Changes start.             "
+""""""""""""""""""""""""""""""""""""""""""
+# define utility functions
+
+# Euclidean algorithm to determine the greatest-common-divisor
+def gcd(a: int, b: int) -> int:
+    if (b == 0):
+        return a
+    else:
+        return gcd(b, a % b)
+def pairwiseCoprimeNumberUtil(x: int) -> set[int]:
+    primes = set()
+    for i in range(1, x):
+        ifAdd = True # flag to determine if current element should be added to primes
+        if gcd(i, x) == 1:
+            for j in primes:
+                if gcd(j, i) != 1:
+                    ifAdd = False
+                    break
+        else: 
+            ifAdd = False
+        if ifAdd:
+            primes.add(i)
+    return primes
+""""""""""""""""""""""""""""""""""""""""""
+"             Changes end.               "
+""""""""""""""""""""""""""""""""""""""""""
+
+
 # Not to be confused with distributed.worker_state_machine.TaskStateState
 TaskStateState: TypeAlias = Literal[
     "released",
@@ -1382,12 +1413,12 @@ class TaskState:
 
 
     """"""""""""""""""""""""""""""""""""""""""
-    "             Changes   start.           "
+    "             Changes start.             "
     """"""""""""""""""""""""""""""""""""""""""
     # A string of hash for scheduling purposes. 
     schedule_hash: str
     """"""""""""""""""""""""""""""""""""""""""
-    "             Changes   end.             "
+    "             Changes end.               "
     """"""""""""""""""""""""""""""""""""""""""
 
     def __init__(
@@ -1525,15 +1556,15 @@ class TaskState:
         """
         return recursive_to_dict(self, exclude=exclude, members=True)
     """"""""""""""""""""""""""""""""""""""""""
-    "             Changes   start.           "
+    "             Changes start.             "
     """"""""""""""""""""""""""""""""""""""""""
-    # generates schedule_hash
+    # generates schedule_hashjj
     def generate_schedule_hash(self):
         client_id = self.who_wants[0].client_key
         operation = self.key
-        self.schedule_hash = hash(client_id + '-' + operation)
+        self.schedule_hash = abs(hash(client_id) ^ hash(operation))
     """"""""""""""""""""""""""""""""""""""""""
-    "             Changes   end.             "
+    "             Changes end.               "
     """"""""""""""""""""""""""""""""""""""""""
 
 class Transition(NamedTuple):
@@ -1566,6 +1597,7 @@ class SchedulerState:
     the background ``Worker``s also engage with the ``Scheduler``
     affecting these state transitions as well.
     """
+
 
     bandwidth: int
 
@@ -1821,6 +1853,15 @@ class SchedulerState:
     ) -> TaskState:
         """Create a new task, and associated states"""
         ts = TaskState(key, spec, state)
+
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        # generate hash value for later usage
+        ts.generate_schedule_hash()
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
 
         prefix_key = key_split(key)
         tp = self.task_prefixes.get(prefix_key)
@@ -2140,36 +2181,77 @@ class SchedulerState:
             returns None, in which case the task should be transitioned to
             ``no-worker``.
         """
+
         if self.validate:
             # See root-ish-ness note below in `decide_worker_rootish_queuing_enabled`
             assert math.isinf(self.WORKER_SATURATION)
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""        
+        # pool = self.idle.values() if self.idle else self.running
+        # if not pool:
+        #     return None
 
-        pool = self.idle.values() if self.idle else self.running
+        pool = self.running
         if not pool:
             return None
+        
+        ws = None
 
-        tg = ts.group
-        lws = tg.last_worker
-        if (
-            lws
-            and tg.last_worker_tasks_left
-            and lws.status == Status.running
-            and self.workers.get(lws.address) is lws
-        ):
-            ws = lws
-        else:
-            # Last-used worker is full, unknown, retiring, or paused;
-            # pick a new worker for the next few tasks
-            ws = min(pool, key=partial(self.worker_objective, ts))
-            tg.last_worker_tasks_left = math.floor(
-                (len(tg) / self.total_nthreads) * ws.nthreads
-            )
+        # determine the home invoker id
+        num_invokers = len(pool)
+        home_invoker_id = ts.schedule_hash % num_invokers
 
-        # Record `last_worker`, or clear it on the final task
-        tg.last_worker = (
-            ws if tg.states["released"] + tg.states["waiting"] > 1 else None
-        )
-        tg.last_worker_tasks_left -= 1
+        # determine steps
+        steps = pairwiseCoprimeNumberUtil(num_invokers)
+
+        # determine which step to use
+        step = steps[ts.schedule_hash % len(steps)]
+
+        invoker_id = home_invoker_id
+        while True:
+            if (
+                pool[invoker_id].status ==  Status.running
+                and pool[invoker_id].address not in self.idle.keys()
+            ):
+                ws = pool[invoker_id]
+                break
+            else:
+                invoker_id = (invoker_id + step) % num_invokers
+                if invoker_id == home_invoker_id:
+                    # Already gone through all potential invokers, now randomly select one healthy idle server
+                    import random
+                    idle_pool = self.idle.values()
+                    if not idle_pool:
+                        return None
+                    ws = idle_pool[random.randint(0, len(idle_pool) - 1)]
+
+        ### Start of the original code from dask.distributed
+        # tg = ts.group
+        # lws = tg.last_worker
+        # if (
+        #     lws
+        #     and tg.last_worker_tasks_left
+        #     and lws.status == Status.running
+        #     and self.workers.get(lws.address) is lws
+        # ):
+        #     ws = lws
+        # else:
+        #     # Last-used worker is full, unknown, retiring, or paused;
+        #     # pick a new worker for the next few tasks
+        #     ws = min(pool, key=partial(self.worker_objective, ts))
+        #     tg.last_worker_tasks_left = math.floor(
+        #         (len(tg) / self.total_nthreads) * ws.nthreads
+        #     )
+
+        # # Record `last_worker`, or clear it on the final task
+        # tg.last_worker = (
+        #     ws if tg.states["released"] + tg.states["waiting"] > 1 else None
+        # )
+        # tg.last_worker_tasks_left -= 1
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
 
         if self.validate and ws is not None:
             assert self.workers.get(ws.address) is ws

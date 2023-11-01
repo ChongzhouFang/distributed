@@ -23,18 +23,22 @@ Actual Changes:
 Inside
 ```
 """"""""""""""""""""""""""""""""""""""""""
-"             Changes   start.           "
+"             Changes start.             "
 """"""""""""""""""""""""""""""""""""""""""
 ```
 and
 ```
 """"""""""""""""""""""""""""""""""""""""""
-"             Changes   end.             "
+"             Changes end.               "
 """"""""""""""""""""""""""""""""""""""""""
 ```
 
 Change lists:
 ```
+├── Added utility functions gcd(), pairwiseCoprimeNumberUtil()
 ├── TaskState: add element schedule_hash (problem: where is the key generated?)
 │   ├── Added function generate_schedule_hash()
+├── SchedulerState:
+│   ├── Modify function new_task()
+│   ├── Modify function decide_worker_rootish_queuing_disabled
 ```
