@@ -2259,7 +2259,11 @@ class SchedulerState:
 
         return ws
 
-    def decide_worker_rootish_queuing_enabled(self) -> WorkerState | None:
+    def decide_worker_rootish_queuing_enabled(self, 
+                                              # Changes start.
+                                              ts: TaskState
+                                              # Changes end.
+                                              ) -> WorkerState | None:
         """Pick a worker for a runnable root-ish task, if not all are busy.
 
         Picks the least-busy worker out of the ``idle`` workers (idle workers have fewer
@@ -2294,24 +2298,64 @@ class SchedulerState:
         if not self.idle_task_count:
             # All workers busy? Task gets/stays queued.
             return None
+        
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        pool = self.running
+        if not pool:
+            return None
+        
+        ws = None
 
+        # determine the home invoker id
+        num_invokers = len(pool)
+        home_invoker_id = ts.schedule_hash % num_invokers
+
+        # determine steps
+        steps = pairwiseCoprimeNumberUtil(num_invokers)
+
+        # determine which step to use
+        step = steps[ts.schedule_hash % len(steps)]
+
+        invoker_id = home_invoker_id
+        while True:
+            if (
+                pool[invoker_id].status ==  Status.running
+                and pool[invoker_id].address not in self.idle.keys()
+            ):
+                ws = pool[invoker_id]
+                break
+            else:
+                invoker_id = (invoker_id + step) % num_invokers
+                if invoker_id == home_invoker_id:
+                    # Already gone through all potential invokers, now randomly select one healthy idle server
+                    import random
+                    idle_pool = self.idle.values()
+                    if not idle_pool:
+                        # Queued
+                        return None
+                    ws = idle_pool[random.randint(0, len(idle_pool) - 1)]
+        ### Start of the original code from dask.distributed
         # Just pick the least busy worker.
         # NOTE: this will lead to worst-case scheduling with regards to co-assignment.
-        ws = min(
-            self.idle_task_count,
-            key=lambda ws: len(ws.processing) / ws.nthreads,
-        )
-        if self.validate:
-            assert not _worker_full(ws, self.WORKER_SATURATION), (
-                ws,
-                _task_slots_available(ws, self.WORKER_SATURATION),
-            )
-            assert ws in self.running, (ws, self.running)
-
+        # ws = min(
+        #     self.idle_task_count,
+        #     key=lambda ws: len(ws.processing) / ws.nthreads,
+        # )
+        # if self.validate:
+        #     assert not _worker_full(ws, self.WORKER_SATURATION), (
+        #         ws,
+        #         _task_slots_available(ws, self.WORKER_SATURATION),
+        #     )
+        #     assert ws in self.running, (ws, self.running)
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
         if self.validate and ws is not None:
             assert self.workers.get(ws.address) is ws
             assert ws in self.running, (ws, self.running)
-
+        
         return ws
 
     def decide_worker_non_rootish(self, ts: TaskState) -> WorkerState | None:
@@ -2331,49 +2375,90 @@ class SchedulerState:
         """
         if not self.running:
             return None
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        pool = self.running
+        if not pool:
+            return None
+        
+        ws = None
 
-        valid_workers = self.valid_workers(ts)
-        if valid_workers is None and len(self.running) < len(self.workers):
-            # If there were no restrictions, `valid_workers()` didn't subset by
-            # `running`.
-            valid_workers = self.running
+        # determine the home invoker id
+        num_invokers = len(pool)
+        home_invoker_id = ts.schedule_hash % num_invokers
 
-        if ts.dependencies or valid_workers is not None:
-            ws = decide_worker(
-                ts,
-                self.running,
-                valid_workers,
-                partial(self.worker_objective, ts),
-            )
-        else:
-            # TODO if `is_rootish` would always return True for tasks without
-            # dependencies, we could remove all this logic. The rootish assignment logic
-            # would behave more or less the same as this, maybe without guaranteed
-            # round-robin though? This path is only reachable when `ts` doesn't have
-            # dependencies, but its group is also smaller than the cluster.
+        # determine steps
+        steps = pairwiseCoprimeNumberUtil(num_invokers)
 
-            # Fastpath when there are no related tasks or restrictions
-            worker_pool = self.idle or self.workers
-            # FIXME idle and workers are SortedDict's declared as dicts
-            #       because sortedcontainers is not annotated
-            wp_vals = cast("Sequence[WorkerState]", worker_pool.values())
-            n_workers = len(wp_vals)
-            if n_workers < 20:  # smart but linear in small case
-                ws = min(wp_vals, key=operator.attrgetter("occupancy"))
-                assert ws
-                if ws.occupancy == 0:
-                    # special case to use round-robin; linear search
-                    # for next worker with zero occupancy (or just
-                    # land back where we started).
-                    start = self.n_tasks % n_workers
-                    for i in range(n_workers):
-                        wp_i = wp_vals[(i + start) % n_workers]
-                        if wp_i.occupancy == 0:
-                            ws = wp_i
-                            break
-            else:  # dumb but fast in large case
-                ws = wp_vals[self.n_tasks % n_workers]
+        # determine which step to use
+        step = steps[ts.schedule_hash % len(steps)]
 
+        invoker_id = home_invoker_id
+        while True:
+            if (
+                pool[invoker_id].status ==  Status.running
+                and pool[invoker_id].address not in self.idle.keys()
+            ):
+                ws = pool[invoker_id]
+                break
+            else:
+                invoker_id = (invoker_id + step) % num_invokers
+                if invoker_id == home_invoker_id:
+                    # Already gone through all potential invokers, now randomly select one healthy idle server
+                    import random
+                    idle_pool = self.idle.values()
+                    if not idle_pool:
+                        # Queued
+                        return None
+                    ws = idle_pool[random.randint(0, len(idle_pool) - 1)]
+        ### Start of the original code from dask.distributed
+        # valid_workers = self.valid_workers(ts)
+        # if valid_workers is None and len(self.running) < len(self.workers):
+        #     # If there were no restrictions, `valid_workers()` didn't subset by
+        #     # `running`.
+        #     valid_workers = self.running
+
+        # if ts.dependencies or valid_workers is not None:
+        #     ws = decide_worker(
+        #         ts,
+        #         self.running,
+        #         valid_workers,
+        #         partial(self.worker_objective, ts),
+        #     )
+        # else:
+            
+        #     # TODO if `is_rootish` would always return True for tasks without
+        #     # dependencies, we could remove all this logic. The rootish assignment logic
+        #     # would behave more or less the same as this, maybe without guaranteed
+        #     # round-robin though? This path is only reachable when `ts` doesn't have
+        #     # dependencies, but its group is also smaller than the cluster.
+
+        #     # Fastpath when there are no related tasks or restrictions
+        #     worker_pool = self.idle or self.workers
+        #     # FIXME idle and workers are SortedDict's declared as dicts
+        #     #       because sortedcontainers is not annotated
+        #     wp_vals = cast("Sequence[WorkerState]", worker_pool.values())
+        #     n_workers = len(wp_vals)
+        #     if n_workers < 20:  # smart but linear in small case
+        #         ws = min(wp_vals, key=operator.attrgetter("occupancy"))
+        #         assert ws
+        #         if ws.occupancy == 0:
+        #             # special case to use round-robin; linear search
+        #             # for next worker with zero occupancy (or just
+        #             # land back where we started).
+        #             start = self.n_tasks % n_workers
+        #             for i in range(n_workers):
+        #                 wp_i = wp_vals[(i + start) % n_workers]
+        #                 if wp_i.occupancy == 0:
+        #                     ws = wp_i
+        #                     break
+        #     else:  # dumb but fast in large case
+        #         ws = wp_vals[self.n_tasks % n_workers]
+        
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
         if self.validate and ws is not None:
             assert self.workers.get(ws.address) is ws
             assert ws in self.running, (ws, self.running)
@@ -2397,7 +2482,7 @@ class SchedulerState:
                 if not (ws := self.decide_worker_rootish_queuing_disabled(ts)):
                     return {ts.key: "no-worker"}, {}, {}
             else:
-                if not (ws := self.decide_worker_rootish_queuing_enabled()):
+                if not (ws := self.decide_worker_rootish_queuing_enabled(ts)):
                     return {ts.key: "queued"}, {}, {}
         else:
             if not (ws := self.decide_worker_non_rootish(ts)):

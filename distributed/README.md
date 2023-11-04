@@ -13,7 +13,7 @@ Potential Classes and Methods to Change:
 │   ├── check_idle_saturated
 │   ├── valid_workers
 │   ├── worker_objective
-│   └── decide_worker
+│   ├── decide_worker
 │   └── (end task?)
 ├── Scheduler
 │   ├── decide_worker
@@ -40,5 +40,10 @@ Change lists:
 │   ├── Added function generate_schedule_hash()
 ├── SchedulerState:
 │   ├── Modify function new_task()
-│   ├── Modify function decide_worker_rootish_queuing_disabled
+│   ├── Modify function decide_worker_rootish_queuing_disabled()
+│   ├── Modify decide_worker_rootish_queuing_enabled()(add param ts)
+│   │   (Related changes, add param ts when being invoked)
+│   │   ├── Modify transition_waiting_processing()
+│   │   ├── Modify transition_queued_processing()
+│   ├── Modify decide_worker_non_rootish()
 ```
