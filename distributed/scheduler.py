@@ -2256,7 +2256,16 @@ class SchedulerState:
         if self.validate and ws is not None:
             assert self.workers.get(ws.address) is ws
             assert ws in self.running, (ws, self.running)
-
+        
+        
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """""""""""""""""""""""""""""""""""""""""" 
+        # Debugging info
+        print("Worker selected. Worker id: ", ws.address)
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
         return ws
 
     def decide_worker_rootish_queuing_enabled(self, 
@@ -2355,7 +2364,14 @@ class SchedulerState:
         if self.validate and ws is not None:
             assert self.workers.get(ws.address) is ws
             assert ws in self.running, (ws, self.running)
-        
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """""""""""""""""""""""""""""""""""""""""" 
+        # Debugging info
+        print("Worker selected. Worker id: ", ws.address)
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
         return ws
 
     def decide_worker_non_rootish(self, ts: TaskState) -> WorkerState | None:
@@ -2455,14 +2471,21 @@ class SchedulerState:
         #                     break
         #     else:  # dumb but fast in large case
         #         ws = wp_vals[self.n_tasks % n_workers]
-        
+
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
         if self.validate and ws is not None:
             assert self.workers.get(ws.address) is ws
             assert ws in self.running, (ws, self.running)
-
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """""""""""""""""""""""""""""""""""""""""" 
+        # Debugging info
+        print("Worker selected. Worker id: ", ws.address)
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
         return ws
 
     def transition_waiting_processing(self, key: str, stimulus_id: str) -> RecsMsgs:
