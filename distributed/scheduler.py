@@ -1558,9 +1558,9 @@ class TaskState:
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes start.             "
     """"""""""""""""""""""""""""""""""""""""""
-    # generates schedule_hashjj
+    # generates schedule_hash
     def generate_schedule_hash(self):
-        client_id = self.who_wants[0].client_key
+        client_id = list(self.who_wants)[0].client_key
         operation = self.key
         self.schedule_hash = abs(hash(client_id) ^ hash(operation))
     """"""""""""""""""""""""""""""""""""""""""
