@@ -2223,10 +2223,10 @@ class SchedulerState:
         invoker_id = home_invoker_id
         while True:
             if (
-                pool[invoker_id].status ==  Status.running
-                and pool[invoker_id].address not in self.idle.keys()
+                list(pool)[invoker_id].status ==  Status.running
+                and list(pool)[invoker_id].address not in self.idle.keys()
             ):
-                ws = pool[invoker_id]
+                ws = list(pool)[invoker_id]
                 break
             else:
                 invoker_id = (invoker_id + step) % num_invokers
@@ -2236,7 +2236,7 @@ class SchedulerState:
                     idle_pool = self.idle.values()
                     if not idle_pool:
                         return None
-                    ws = idle_pool[random.randint(0, len(idle_pool) - 1)]
+                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
 
         ### Start of the original code from dask.distributed
         # tg = ts.group
@@ -2342,10 +2342,10 @@ class SchedulerState:
         invoker_id = home_invoker_id
         while True:
             if (
-                pool[invoker_id].status ==  Status.running
-                and pool[invoker_id].address not in self.idle.keys()
+                list(pool)[invoker_id].status ==  Status.running
+                and list(pool)[invoker_id].address not in self.idle.keys()
             ):
-                ws = pool[invoker_id]
+                ws = list(pool)[invoker_id]
                 break
             else:
                 invoker_id = (invoker_id + step) % num_invokers
@@ -2356,7 +2356,7 @@ class SchedulerState:
                     if not idle_pool:
                         # Queued
                         return None
-                    ws = idle_pool[random.randint(0, len(idle_pool) - 1)]
+                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
         ### Start of the original code from dask.distributed
         # Just pick the least busy worker.
         # NOTE: this will lead to worst-case scheduling with regards to co-assignment.
@@ -2425,10 +2425,10 @@ class SchedulerState:
         invoker_id = home_invoker_id
         while True:
             if (
-                pool[invoker_id].status ==  Status.running
-                and pool[invoker_id].address not in self.idle.keys()
+                list(pool)[invoker_id].status ==  Status.running
+                and list(pool)[invoker_id].address not in self.idle.keys()
             ):
-                ws = pool[invoker_id]
+                ws = list(pool)[invoker_id]
                 break
             else:
                 invoker_id = (invoker_id + step) % num_invokers
@@ -2439,7 +2439,7 @@ class SchedulerState:
                     if not idle_pool:
                         # Queued
                         return None
-                    ws = idle_pool[random.randint(0, len(idle_pool) - 1)]
+                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
         ### Start of the original code from dask.distributed
         # valid_workers = self.valid_workers(ts)
         # if valid_workers is None and len(self.running) < len(self.workers):
