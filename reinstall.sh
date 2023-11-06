@@ -1,2 +1,2 @@
-pip uninstall distributed
+pip uninstall distributed --yes
 pip install .
