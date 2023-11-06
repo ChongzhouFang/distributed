@@ -2494,7 +2494,7 @@ class SchedulerState:
         "             Changes start.             "
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
-        logger.info("Worker selected. Worker id: ", ws.address)
+        logger.info("Worker selected. Worker id: %s", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
