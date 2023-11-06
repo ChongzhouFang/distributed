@@ -2224,7 +2224,7 @@ class SchedulerState:
         while True:
             if (
                 list(pool)[invoker_id].status ==  Status.running
-                and list(pool)[invoker_id].address not in self.idle.keys()
+                and list(pool)[invoker_id].address in self.idle.keys()
             ):
                 ws = list(pool)[invoker_id]
                 break
@@ -2344,7 +2344,7 @@ class SchedulerState:
         while True:
             if (
                 list(pool)[invoker_id].status ==  Status.running
-                and list(pool)[invoker_id].address not in self.idle.keys()
+                and list(pool)[invoker_id].address in self.idle.keys()
             ):
                 ws = list(pool)[invoker_id]
                 break
@@ -2432,7 +2432,7 @@ class SchedulerState:
         while True:
             if (
                 list(pool)[invoker_id].status ==  Status.running
-                and list(pool)[invoker_id].address not in self.idle.keys()
+                and list(pool)[invoker_id].address in self.idle.keys()
             ):
                 ws = list(pool)[invoker_id]
                 # debugging info
