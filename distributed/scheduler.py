@@ -1398,6 +1398,15 @@ class TaskState:
     #: be rejected.
     run_id: int | None
 
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes start.             "
+    """"""""""""""""""""""""""""""""""""""""""
+    # A string of hash for scheduling purposes. 
+    schedule_hash: str
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes end.               "
+    """"""""""""""""""""""""""""""""""""""""""
+
     #: Cached hash of :attr:`~TaskState.client_key`
     _hash: int
 
@@ -1412,14 +1421,7 @@ class TaskState:
     _instances: ClassVar[weakref.WeakSet[TaskState]] = weakref.WeakSet()
 
 
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes start.             "
-    """"""""""""""""""""""""""""""""""""""""""
-    # A string of hash for scheduling purposes. 
-    schedule_hash: str
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes end.               "
-    """"""""""""""""""""""""""""""""""""""""""
+    
 
     def __init__(
         self,
@@ -1569,10 +1571,10 @@ class TaskState:
     def generate_schedule_hash(self):
         # client_id = list(self.who_wants)[0].client_key
         operation = self.key
-        print('Operation: ', operation)
+        logger.info('Operation: %s', operation)
         # self.schedule_hash = abs(hash(client_id) ^ hash(operation))
         self.schedule_hash = hash(operation)
-        print('Task Hash: ', self.schedule_hash)
+        logger.info('Task Hash: %s', self.schedule_hash)
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
     """"""""""""""""""""""""""""""""""""""""""
@@ -2272,7 +2274,7 @@ class SchedulerState:
         "             Changes start.             "
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
-        print("Worker selected. Worker id: ", ws.address)
+        logger.info("Worker selected. Worker id: %s", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2378,7 +2380,7 @@ class SchedulerState:
         "             Changes start.             "
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
-        print("Worker selected. Worker id: ", ws.address)
+        logger.info("Worker selected. Worker id: %s", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2492,7 +2494,7 @@ class SchedulerState:
         "             Changes start.             "
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
-        print("Worker selected. Worker id: ", ws.address)
+        logger.info("Worker selected. Worker id: ", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""

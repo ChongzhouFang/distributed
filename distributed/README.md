@@ -38,6 +38,7 @@ Change lists:
 ├── Added utility functions gcd(), pairwiseCoprimeNumberUtil()
 ├── TaskState: add element schedule_hash (problem: where is the key generated?)
 │   ├── Added function generate_schedule_hash()
+│   ├── Added definition of schedule_hash to __init__()
 ├── SchedulerState:
 │   ├── Modify function new_task()
 │   ├── Modify function decide_worker_rootish_queuing_disabled()
