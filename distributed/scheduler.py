@@ -1461,6 +1461,13 @@ class TaskState:
         self.annotations = {}
         self.erred_on = set()
         self.run_id = None
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        self.schedule_hash = None
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
         TaskState._instances.add(self)
 
     def __hash__(self) -> int:
