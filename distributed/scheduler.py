@@ -2237,6 +2237,7 @@ class SchedulerState:
                     if not idle_pool:
                         return None
                     ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
+                    break
 
         ### Start of the original code from dask.distributed
         # tg = ts.group
@@ -2357,6 +2358,7 @@ class SchedulerState:
                         # Queued
                         return None
                     ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
+                    break
         ### Start of the original code from dask.distributed
         # Just pick the least busy worker.
         # NOTE: this will lead to worst-case scheduling with regards to co-assignment.
@@ -2440,6 +2442,7 @@ class SchedulerState:
                         # Queued
                         return None
                     ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
+                    break
         ### Start of the original code from dask.distributed
         # valid_workers = self.valid_workers(ts)
         # if valid_workers is None and len(self.running) < len(self.workers):
