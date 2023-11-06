@@ -2425,15 +2425,23 @@ class SchedulerState:
         step = list(steps)[ts.schedule_hash % len(steps)]
 
         invoker_id = home_invoker_id
+
+        # debugging info
+        logger.info('Home invoker index = %d', invoker_id)
+
         while True:
             if (
                 list(pool)[invoker_id].status ==  Status.running
                 and list(pool)[invoker_id].address not in self.idle.keys()
             ):
                 ws = list(pool)[invoker_id]
+                # debugging info
+                logger.info('Decided worker at the first stage. Worker index = %d', invoker_id)
                 break
             else:
                 invoker_id = (invoker_id + step) % num_invokers
+                # debugging info
+                logger.info('Changing invoker index. Invoker index = %d', invoker_id)
                 if invoker_id == home_invoker_id:
                     # Already gone through all potential invokers, now randomly select one healthy idle server
                     import random
@@ -2442,6 +2450,8 @@ class SchedulerState:
                         # Queued
                         return None
                     ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
+                    # debugging info
+                    logger.info('Decided worker at the second stage. Worker index = %d', invoker_id)
                     break
         ### Start of the original code from dask.distributed
         # valid_workers = self.valid_workers(ts)
