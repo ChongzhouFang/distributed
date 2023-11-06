@@ -2218,7 +2218,7 @@ class SchedulerState:
         steps = pairwiseCoprimeNumberUtil(num_invokers)
 
         # determine which step to use
-        step = steps[ts.schedule_hash % len(steps)]
+        step = list(steps)[ts.schedule_hash % len(steps)]
 
         invoker_id = home_invoker_id
         while True:
@@ -2337,7 +2337,7 @@ class SchedulerState:
         steps = pairwiseCoprimeNumberUtil(num_invokers)
 
         # determine which step to use
-        step = steps[ts.schedule_hash % len(steps)]
+        step = list(steps)[ts.schedule_hash % len(steps)]
 
         invoker_id = home_invoker_id
         while True:
@@ -2420,7 +2420,7 @@ class SchedulerState:
         steps = pairwiseCoprimeNumberUtil(num_invokers)
 
         # determine which step to use
-        step = steps[ts.schedule_hash % len(steps)]
+        step = list(steps)[ts.schedule_hash % len(steps)]
 
         invoker_id = home_invoker_id
         while True:
