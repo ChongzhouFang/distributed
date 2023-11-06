@@ -1560,9 +1560,12 @@ class TaskState:
     """"""""""""""""""""""""""""""""""""""""""
     # generates schedule_hash
     def generate_schedule_hash(self):
-        client_id = list(self.who_wants)[0].client_key
+        # client_id = list(self.who_wants)[0].client_key
         operation = self.key
-        self.schedule_hash = abs(hash(client_id) ^ hash(operation))
+        print('Operation: ', operation)
+        # self.schedule_hash = abs(hash(client_id) ^ hash(operation))
+        self.schedule_hash = hash(operation)
+        print('Task Hash: ', self.schedule_hash)
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
     """"""""""""""""""""""""""""""""""""""""""
