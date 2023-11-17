@@ -19,6 +19,17 @@ Potential Classes and Methods to Change:
 │   ├── decide_worker
 ```
 
+Also need to maintain the list of function hosts on each machine.
+
+In our setting:
+
+1. Each function invocation is an HTTP request (tentatively ```curl```)
+2. Schedules like normal dask jobs
+3. When deploying: if there is no corresponding function host, need to fetch the function code (possibly store somewhere on the internet) and run ```dotnet run ...``` before executing the ```curl``` command
+
+So we need to change the part to run code as well.
+
+
 Actual Changes:
 Inside
 ```
