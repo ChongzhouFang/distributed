@@ -28,6 +28,17 @@ In our setting:
 3. When deploying: if there is no corresponding function host, need to fetch the function code (possibly store somewhere on the internet) and run ```dotnet run ...``` before executing the ```curl``` command
 
 So we need to change the part to run code as well.
+```
+scheduler.py
+├── SchedulerState
+│   ├── _add_to_processing
+
+worker.py
+├── async run
+├── class worker (add a list of currently running hosts; add logic to determine how to wrap function)
+│   ├── run()
+```
+
 
 
 Actual Changes:
@@ -51,6 +62,7 @@ scheduler.py
 ├── TaskState: add element schedule_hash (problem: where is the key generated?)
 │   ├── Added function generate_schedule_hash()
 │   ├── Added definition of schedule_hash to __init__()
+├── WorkerState: add element running_hosts to store currently running function host instances
 ├── SchedulerState:
 │   ├── Modify function new_task()
 │   ├── Modify function decide_worker_rootish_queuing_disabled()

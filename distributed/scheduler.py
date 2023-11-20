@@ -531,6 +531,15 @@ class WorkerState:
     _network_occ: float
     _occupancy_cache: float | None
 
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes start.             "
+    """"""""""""""""""""""""""""""""""""""""""
+    # Store the currently running function hosts
+    running_hosts: set[str]
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes end.               "
+    """"""""""""""""""""""""""""""""""""""""""
+
     #: Keys that may need to be fetched to this worker, and the number of tasks that need them.
     #: All tasks are currently in `memory` on a worker other than this one.
     #: Much like `processing`, this does not exactly reflect worker state:
