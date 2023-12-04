@@ -72,4 +72,10 @@ scheduler.py
 │   │   ├── Modify transition_queued_processing()
 │   ├── Modify decide_worker_non_rootish()
 
+
+worker.py
+├── modified async run() function
+├── Worker: 
+│   ├── Added element running_instances
+│   ├── Added member function add_instance()
 ```

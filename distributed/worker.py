@@ -469,6 +469,14 @@ class Worker(BaseWorker, ServerNode):
     plugins: dict[str, WorkerPlugin]
     _pending_plugins: tuple[WorkerPlugin, ...]
 
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes start.             "
+    """"""""""""""""""""""""""""""""""""""""""
+    # a place to store currently running serverless instances
+    running_instances: list
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes end.               "
+    """"""""""""""""""""""""""""""""""""""""""
     def __init__(
         self,
         scheduler_ip: str | None = None,
@@ -2149,6 +2157,15 @@ class Worker(BaseWorker, ServerNode):
     ################
     # Execute Task #
     ################
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes start.             "
+    """"""""""""""""""""""""""""""""""""""""""
+    # need further modification
+    def add_host(self, function) -> None:
+        self.running_instances.append(function)
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes end.               "
+    """"""""""""""""""""""""""""""""""""""""""
 
     def run(self, comm, function, args=(), wait=True, kwargs=None):
         return run(self, comm, function=function, args=args, kwargs=kwargs, wait=wait)
@@ -3168,6 +3185,24 @@ async def run(server, comm, function, args=(), kwargs=None, wait=True):
 
     try:
         if not is_coro:
+            """"""""""""""""""""""""""""""""""""""""""
+            "             Changes start.             "
+            """"""""""""""""""""""""""""""""""""""""""
+            # submitted function is not python asyncio coroutine (of course not)
+
+
+            # *****needs further modification. What is the function object? *****
+            # check if instance exists 
+            if function in server.running_instances:
+                # needs further modification
+                os.system('curl localhost:5000/api/' + function) # how to get function name?
+            else:
+                server.add_instance(function)
+                os.system('export ..')
+
+            """"""""""""""""""""""""""""""""""""""""""
+            "             Changes end.               "
+            """"""""""""""""""""""""""""""""""""""""""
             result = function(*args, **kwargs)
         else:
             if wait:
