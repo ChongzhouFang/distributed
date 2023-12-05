@@ -39,7 +39,7 @@ worker.py
 │   ├── run()
 ```
 
-
+Question: How does TaskState get the parameter run_spec passed?
 
 Actual Changes:
 Inside

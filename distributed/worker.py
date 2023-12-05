@@ -2956,7 +2956,7 @@ def apply_function(
     with set_thread_state(
         start_time=time(),
         execution_state=execution_state,
-        key=key,
+        key=key,Run
     ):
         token = _worker_cvar.set(execution_state["worker"])
         try:
