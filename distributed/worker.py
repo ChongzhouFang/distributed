@@ -3190,20 +3190,19 @@ async def run(server, comm, function, args=(), kwargs=None, wait=True):
             """"""""""""""""""""""""""""""""""""""""""
             # submitted function is not python asyncio coroutine (of course not)
 
-
-            # *****needs further modification. What is the function object? *****
+            # *****needs further modification. What is the name of the function object? *****
             # check if instance exists 
             if function in server.running_instances:
                 # needs further modification
-                os.system('curl localhost:5000/api/' + function) # how to get function name?
+                os.system('curl localhost:5000/api/' + funcname(function))
             else:
-                server.add_instance(function)
-                os.system('export ..')
-
+                server.add_instance(funcname(function))
+                logger.info("Function name is: %r", funcname(function))
+                # os.system('export ..')
+            result = function(*args, **kwargs)
             """"""""""""""""""""""""""""""""""""""""""
             "             Changes end.               "
             """"""""""""""""""""""""""""""""""""""""""
-            result = function(*args, **kwargs)
         else:
             if wait:
                 result = await function(*args, **kwargs)
