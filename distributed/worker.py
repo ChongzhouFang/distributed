@@ -2361,7 +2361,7 @@ class Worker(BaseWorker, ServerNode):
 
                     ## start launching function
                     function_host_handler = asyncio.create_task(launch_function_host(str(funcname(function))[:1000]))
-                    
+                    # how to maintain this handler?
 
                     # run an empty function
                     result = await self.loop.run_in_executor(
