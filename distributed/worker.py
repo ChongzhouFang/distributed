@@ -191,6 +191,23 @@ class GetDataSuccess(TypedDict):
     status: Literal["OK"]
     data: dict[str, object]
 
+""""""""""""""""""""""""""""""""""""""""""
+"             Changes start.             "
+""""""""""""""""""""""""""""""""""""""""""
+async def launch_function_host(function_name: str):
+    # retrieve repo from github
+    os.system('wget https://github.com/ChongzhouFang/azure-functions-host/archive/refs/heads/' + function_name + '.zip')
+    os.system('unzip azure-functions-host-' + function_name + '.zip')
+    host_folder = 'azure-functions-host-' + function_name + '/'
+    os.system('cd ' + host_folder)
+
+    # launch host, should change to using asyncio.create_task here
+    os.system('export AZURE_FUNCTIONS_ENVIRONMENT=Development')
+    os.system('export AzureWebJobsScriptRoot=$(pwd)/' + host_folder + 'src/WebJobs.Script.WebHost/Resources/Functions/')
+    os.system('dotnet run --project $(pwd)/'+ host_folder + 'src/WebJobs.Script.WebHost/WebJobs.Script.WebHost.csproj')
+""""""""""""""""""""""""""""""""""""""""""
+"             Changes end.               "
+""""""""""""""""""""""""""""""""""""""""""
 
 def fail_hard(method: Callable[P, T]) -> Callable[P, T]:
     """
@@ -2283,44 +2300,71 @@ class Worker(BaseWorker, ServerNode):
             "             Changes end.               "
             """"""""""""""""""""""""""""""""""""""""""
             try:
-                ts.start_time = time()
-                if iscoroutinefunction(function):
-                    token = _worker_cvar.set(self)
-                    try:
-                        result = await apply_function_async(
-                            function,
-                            args2,
-                            kwargs2,
-                            self.scheduler_delay,
-                        )
-                    finally:
-                        _worker_cvar.reset(token)
-                elif "ThreadPoolExecutor" in str(type(e)):
-                    # The 'executor' time metric should be almost zero most of the time,
-                    # e.g. thread synchronization overhead only, since thread-noncpu and
-                    # thread-cpu inside the thread detract from it. However, it may
-                    # become substantial in case of misalignment between the size of the
-                    # thread pool and the number of running tasks in the worker state
-                    # machine (e.g. https://github.com/dask/distributed/issues/5882)
-                    with context_meter.meter("executor"):
-                        result = await run_in_executor_with_context(
-                            e,
-                            apply_function,
-                            function,
-                            args2,
-                            kwargs2,
-                            self.execution_state,
-                            key,
-                            self.active_threads,
-                            self.active_threads_lock,
-                            self.scheduler_delay,
-                        )
+                """"""""""""""""""""""""""""""""""""""""""
+                "             Changes start.             "
+                """"""""""""""""""""""""""""""""""""""""""
+                # ts.start_time = time()
+                # if iscoroutinefunction(function):
+                #     token = _worker_cvar.set(self)
+                #     try:
+                #         result = await apply_function_async(
+                #             function,
+                #             args2,
+                #             kwargs2,
+                #             self.scheduler_delay,
+                #         )
+                #     finally:
+                #         _worker_cvar.reset(token)
+                
+
+                # elif "ThreadPoolExecutor" in str(type(e)):
+                #     # The 'executor' time metric should be almost zero most of the time,
+                #     # e.g. thread synchronization overhead only, since thread-noncpu and
+                #     # thread-cpu inside the thread detract from it. However, it may
+                #     # become substantial in case of misalignment between the size of the
+                #     # thread pool and the number of running tasks in the worker state
+                #     # machine (e.g. https://github.com/dask/distributed/issues/5882)
+                #     with context_meter.meter("executor"):
+                #         result = await run_in_executor_with_context(
+                #             e,
+                #             apply_function,
+                #             function,
+                #             args2,
+                #             kwargs2,
+                #             self.execution_state,
+                #             key,
+                #             self.active_threads,
+                #             self.active_threads_lock,
+                #             self.scheduler_delay,
+                #         )
+                # else:
+                #     # Can't capture contextvars across processes. If this is a
+                #     # ProcessPoolExecutor, the 'executor' time metric will show the
+                #     # whole runtime inside the executor.
+                #     with context_meter.meter("executor"):
+                #         result = await self.loop.run_in_executor(
+                #             e,
+                #             apply_function_simple,
+                #             function,
+                #             args2,
+                #             kwargs2,
+                #             self.scheduler_delay,
+                #         )
+
+                if str(funcname(function))[:1000] in self.running_instances:
+                # needs further modification
+                    os.system('curl localhost:5000/api/' + str(funcname(function))[:1000])
+                    logger.info("Host already exists, name is: %s", str(funcname(function))[:1000])
                 else:
-                    # Can't capture contextvars across processes. If this is a
-                    # ProcessPoolExecutor, the 'executor' time metric will show the
-                    # whole runtime inside the executor.
-                    with context_meter.meter("executor"):
-                        result = await self.loop.run_in_executor(
+                    self.add_instance(str(funcname(function))[:1000])
+                    logger.info("Function host cold starts, name is: %s", str(funcname(function))[:1000])
+
+                    ## start launching function
+                    function_host_handler = asyncio.create_task(launch_function_host(str(funcname(function))[:1000]))
+                    
+
+                    # run an empty function
+                    result = await self.loop.run_in_executor(
                             e,
                             apply_function_simple,
                             function,
@@ -2328,6 +2372,11 @@ class Worker(BaseWorker, ServerNode):
                             kwargs2,
                             self.scheduler_delay,
                         )
+
+
+                """"""""""""""""""""""""""""""""""""""""""
+                "             Changes end.               "
+                """"""""""""""""""""""""""""""""""""""""""
             finally:
                 self.active_keys.discard(key)
                 span_ctx.__exit__(None, None, None)
@@ -3204,12 +3253,12 @@ async def run(server, comm, function, args=(), kwargs=None, wait=True):
 
             # *****needs further modification. What is the name of the function object? *****
             # check if instance exists 
-            if function in server.running_instances:
+            if str(funcname(function))[:1000] in server.running_instances:
                 # needs further modification
                 os.system('curl localhost:5000/api/' + str(funcname(function))[:1000])
                 logger.info("Function is NOT coro, name in running instances, name is: %s", str(funcname(function))[:1000])
             else:
-                server.add_instance(funcname(function))
+                server.add_instance(str(funcname(function))[:1000])
                 logger.info("Function is NOT coro, name NOT in running instances, name is: %s", str(funcname(function))[:1000])
                 # os.system('export ..')
             

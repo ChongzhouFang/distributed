@@ -34,12 +34,12 @@ scheduler.py
 │   ├── _add_to_processing
 
 worker.py
+├── async launch_function_host
 ├── async run
-├── class worker (add a list of currently running hosts; add logic to determine how to wrap function)
+├── class worker (add a list of currently running hosts, as well as a list of their handlers)
 │   ├── run()
+│   ├── execute() (where execution really happens. Use asyncio.create_task to launch a new host)
 ```
-
-Question: How does TaskState get the parameter run_spec passed?
 
 Actual Changes:
 Inside
@@ -74,8 +74,10 @@ scheduler.py
 
 
 worker.py
+├── added async launch_function_host() function
 ├── modified async run() function
 ├── Worker: 
 │   ├── Added element running_instances
 │   ├── Added member function add_instance()
+│   ├── Modified execute()
 ```
