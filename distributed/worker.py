@@ -3194,19 +3194,35 @@ async def run(server, comm, function, args=(), kwargs=None, wait=True):
             # check if instance exists 
             if function in server.running_instances:
                 # needs further modification
-                os.system('curl localhost:5000/api/' + funcname(function))
+                os.system('curl localhost:5000/api/' + str(funcname(function))[:1000])
+                logger.info("Function is NOT coro, name in running instances, name is: %s", str(funcname(function))[:1000])
             else:
                 server.add_instance(funcname(function))
-                logger.info("Function name is: %r", funcname(function))
+                logger.info("Function is NOT coro, name NOT in running instances, name is: %s", str(funcname(function))[:1000])
                 # os.system('export ..')
-            result = function(*args, **kwargs)
+            
             """"""""""""""""""""""""""""""""""""""""""
             "             Changes end.               "
             """"""""""""""""""""""""""""""""""""""""""
+            result = function(*args, **kwargs)
         else:
             if wait:
+                """"""""""""""""""""""""""""""""""""""""""
+                "             Changes start.             "
+                """"""""""""""""""""""""""""""""""""""""""
+                logger.info("Function is coro, wait is True, name is: %s", str(funcname(function))[:1000])
+                """"""""""""""""""""""""""""""""""""""""""
+                "             Changes end.               "
+                """"""""""""""""""""""""""""""""""""""""""
                 result = await function(*args, **kwargs)
             else:
+                """"""""""""""""""""""""""""""""""""""""""
+                "             Changes start.             "
+                """"""""""""""""""""""""""""""""""""""""""
+                logger.info("Function is coro, wait is False, name is: %s", str(funcname(function))[:1000])
+                """"""""""""""""""""""""""""""""""""""""""
+                "             Changes end.               "
+                """"""""""""""""""""""""""""""""""""""""""
                 server._ongoing_background_tasks.call_soon(function, *args, **kwargs)
                 result = None
 

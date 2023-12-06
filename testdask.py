@@ -3,7 +3,7 @@ import dask, distributed,os
 # command = 'export AZURE_FUNCTIONS_ENVIRONMENT=Development;\
 #         export AzureWebJobsScriptRoot=/home/GCPkey/azure-functions-host/src/WebJobs.Script.WebHost/Resources/Functions/;\
 #         dotnet run --project /home/GCPkey/azure-functions-host/src/WebJobs.Script.WebHost/WebJobs.Script.WebHost.csproj'
-command = 'ls -al'
+command = 'echo \"NICE, IT IS RUNNING!\"'
 
 def exec(c):
         return os.system(c)
