@@ -2186,7 +2186,13 @@ class Worker(BaseWorker, ServerNode):
         actor = self.state.actors[key]
         func = getattr(actor, function)
         name = key_split(key) + "." + function
-
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        logger.info("Invocation in actor_execute,  name is: %s", str(funcname(function))[:1000])
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
         try:
             if iscoroutinefunction(func):
                 token = _worker_cvar.set(self)
@@ -2240,7 +2246,7 @@ class Worker(BaseWorker, ServerNode):
         # The key *must* be in the worker state thanks to the cancelled state
         ts = self.state.tasks[key]
         run_id = ts.run_id
-
+        
         try:
             if self.state.validate:
                 assert not ts.waiting_for_data
@@ -2269,7 +2275,13 @@ class Worker(BaseWorker, ServerNode):
                 else contextlib.nullcontext()
             )
             span_ctx.__enter__()
-
+            """"""""""""""""""""""""""""""""""""""""""
+            "             Changes start.             "
+            """"""""""""""""""""""""""""""""""""""""""
+            logger.info("Invocation happen in execute(), name is: %s", str(funcname(function))[:1000])
+            """"""""""""""""""""""""""""""""""""""""""
+            "             Changes end.               "
+            """"""""""""""""""""""""""""""""""""""""""
             try:
                 ts.start_time = time()
                 if iscoroutinefunction(function):
