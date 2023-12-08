@@ -15,6 +15,13 @@ import sys
 import threading
 import warnings
 import weakref
+""""""""""""""""""""""""""""""""""""""""""
+"             Changes start.             "
+""""""""""""""""""""""""""""""""""""""""""
+import psutil
+""""""""""""""""""""""""""""""""""""""""""
+"             Changes end.               "
+""""""""""""""""""""""""""""""""""""""""""
 from collections import defaultdict, deque
 from collections.abc import (
     Callable,
@@ -194,17 +201,64 @@ class GetDataSuccess(TypedDict):
 """"""""""""""""""""""""""""""""""""""""""
 "             Changes start.             "
 """"""""""""""""""""""""""""""""""""""""""
+# Coroutine to launch a function host
 async def launch_function_host(function_name: str):
     # retrieve repo from github
     os.system('wget https://github.com/ChongzhouFang/azure-functions-host/archive/refs/heads/' + function_name + '.zip')
-    os.system('unzip azure-functions-host-' + function_name + '.zip')
+    os.system('unzip -qq ' + function_name + '.zip')
     host_folder = 'azure-functions-host-' + function_name + '/'
-    os.system('cd ' + host_folder)
+    current_folder = os.getcwd()
+    print(os.environ['PATH'])
+    try:
+        process = await asyncio.create_subprocess_exec(
+            'dotnet', 'run', '--project',
+            os.path.join(current_folder, host_folder, 'src/WebJobs.Script.WebHost/WebJobs.Script.WebHost.csproj'),
+            env={
+                    'AZURE_FUNCTIONS_ENVIRONMENT': 'Development',
+                    'AzureWebJobsScriptRoot': os.path.join(current_folder, host_folder, 'src/WebJobs.Script.WebHost/Resources/Functions/'),
+                    'PATH': os.environ['PATH'],
+                    'DOTNET_CLI_HOME': '/home/jiujiu'
+                }
+        )
 
-    # launch host, should change to using asyncio.create_task here
-    os.system('export AZURE_FUNCTIONS_ENVIRONMENT=Development')
-    os.system('export AzureWebJobsScriptRoot=$(pwd)/' + host_folder + 'src/WebJobs.Script.WebHost/Resources/Functions/')
-    os.system('dotnet run --project $(pwd)/'+ host_folder + 'src/WebJobs.Script.WebHost/WebJobs.Script.WebHost.csproj')
+        await asyncio.gather(process.wait(), asyncio.sleep(0))
+
+    except asyncio.CancelledError:
+        print("Function host was cancelled.")
+        terminate_functions_host_processes(process.pid)
+
+# Utility function to terminate function hosts
+def terminate_functions_host_processes(main_pid):
+    try:
+        main_process = psutil.Process(main_pid)
+
+        # Get all child processes of the main dotnet process
+        children = main_process.children(recursive=True)
+
+        # Terminate all child processes
+        for child in children:
+            child.terminate()
+
+        # Wait for a short time to allow processes to terminate gracefully
+        _, alive = psutil.wait_procs(children, timeout=1)
+
+        # Terminate any remaining alive processes
+        for child in alive:
+            child.terminate()
+
+        # Wait for another short time
+        _, alive = psutil.wait_procs(alive, timeout=1)
+
+        # Kill any remaining processes forcefully
+        for child in alive:
+            child.kill()
+
+        # Terminate the main dotnet process
+        main_process.terminate()
+
+    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        # Handle exceptions as needed
+        pass
 """"""""""""""""""""""""""""""""""""""""""
 "             Changes end.               "
 """"""""""""""""""""""""""""""""""""""""""
@@ -2363,15 +2417,7 @@ class Worker(BaseWorker, ServerNode):
                     function_host_handler = asyncio.create_task(launch_function_host(str(funcname(function))[:1000]))
                     # how to maintain this handler?
 
-                    # run an empty function
-                    result = await self.loop.run_in_executor(
-                            e,
-                            apply_function_simple,
-                            function,
-                            args2,
-                            kwargs2,
-                            self.scheduler_delay,
-                        )
+                    result = await asyncio.sleep()
 
 
                 """"""""""""""""""""""""""""""""""""""""""
