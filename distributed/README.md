@@ -74,10 +74,13 @@ scheduler.py
 
 
 worker.py
-├── added async launch_function_host() function
-├── modified async run() function
+├── Imported psutil and time modules
+├── Added async launch_function_host() as well as terminate_functions_host_processes() functions
+├── Modified async run() function
 ├── Worker: 
-│   ├── Added element running_instances
-│   ├── Added member function add_instance()
+│   ├── Added element running_instances and function_host_last_active_time
+│   ├── Added member function add_host(), clean_up_host()
+│   ├── Added async check_idle_period()
 │   ├── Modified execute()
+├── Modified async run()
 ```
