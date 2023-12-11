@@ -2453,16 +2453,21 @@ class Worker(BaseWorker, ServerNode):
                                                     launch_function_host(
                                                         str(funcname(function))[:1000]
                                                         ))
-                    idle_check_handler = asyncio.create_task(
-                                                    self.check_idle_period(
-                                                        str(funcname(function))[:1000], 
-                                                        function_host_handler
-                                                        ))
+                    # idle_check_handler = asyncio.create_task(
+                    #                                 self.check_idle_period(
+                    #                                     str(funcname(function))[:1000], 
+                    #                                     function_host_handler
+                    #                                     ))
                     
                     await function_host_handler
-                    # await idle_check_handler
+                    
+                    await asyncio.get_event_loop().run_in_executor(
+                                                    self.check_idle_period,
+                                                    str(funcname(function))[:1000], 
+                                                        function_host_handler
+                                                    )
 
-                    idle_check_handler.cancel()
+                    # idle_check_handler.cancel()
 
                     self.clean_up_host(str(funcname(function))[:1000])
                 
