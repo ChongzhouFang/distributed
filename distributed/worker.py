@@ -2251,12 +2251,12 @@ class Worker(BaseWorker, ServerNode):
         os.system('rm ' + function + '.zip')
         del self.function_host_last_active_time[function]
 
-    async def check_idle_period(self, name:str, handler) -> None:
+    async def check_idle_period(self, name:str, function_handler) -> None:
         while True:
         # Check if the host has been idle for 3 minutes
             if tm.time() - self.function_host_last_active_time[name] > 180:
                 logger.info("Host %s has been idle for 3 minutes. Terminating...", name)
-                handler.cancel()
+                function_handler.cancel()
                 break
 
             # Sleep for a short interval before checking again
@@ -2459,16 +2459,14 @@ class Worker(BaseWorker, ServerNode):
                     #                                     function_host_handler
                     #                                     ))
                     
-                    await function_host_handler
+                    # await function_host_handler
                     
-                    await asyncio.get_event_loop().run_in_executor(
-                                                    self.check_idle_period,
-                                                    str(funcname(function))[:1000], 
-                                                        function_host_handler
-                                                    )
+                    
 
                     # idle_check_handler.cancel()
-
+                    await asyncio.sleep(120)
+                    logger.info("Time up, close host.")
+                    function_host_handler.cancel()
                     self.clean_up_host(str(funcname(function))[:1000])
                 
                 ### Debugging
