@@ -2424,12 +2424,12 @@ class Worker(BaseWorker, ServerNode):
                 #             kwargs2,
                 #             self.scheduler_delay,
                 #         )
-                self.function_host_last_active_time = time.time()
+                self.function_host_last_active_time[str(funcname(function))[:1000]] = time.time()
                 # The result variable in the following two branches simply serves to maintain the original interface
                 # function host exists
                 if str(funcname(function))[:1000] in self.running_instances:
                     logger.info("Host already exists, name is: %s", str(funcname(function))[:1000])
-                    result = await asyncio.create_subprocess_exec('curl', 'localhost:5000/api/' + str(funcname(function))[:1000])
+                    await asyncio.create_subprocess_exec('curl', 'localhost:5000/api/' + str(funcname(function))[:1000])
                 else:
                     # cold starts
                     logger.info("Function host cold starts, name is: %s", str(funcname(function))[:1000])
@@ -2438,11 +2438,24 @@ class Worker(BaseWorker, ServerNode):
                     function_host_handler = asyncio.create_task(launch_function_host(str(funcname(function))[:1000]))
                     idle_check_handler = asyncio.create_task(self.check_idle_period(str(funcname(function))[:1000]), function_host_handler)
                     
-                    result = await function_host_handler
+                    await function_host_handler
 
                     idle_check_handler.cancel()
 
                     self.clean_up_host(str(funcname(function))[:1000])
+                
+                # exception handling: needs further modification
+                result = {
+                        "op": "task-finished",
+                        "status": "OK",
+                        "result": None,
+                        "nbytes": 0,
+                        "type": type(result) if result is not None else None,
+                    }
+
+                result["start"] = 0
+                result["stop"] = 180
+                result["thread"] = threading.get_ident()
 
                 """"""""""""""""""""""""""""""""""""""""""
                 "             Changes end.               "
