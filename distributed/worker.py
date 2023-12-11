@@ -2449,8 +2449,15 @@ class Worker(BaseWorker, ServerNode):
                     logger.info("Function host cold starts, name is: %s", str(funcname(function))[:1000])
                     self.add_host(str(funcname(function))[:1000])
                     # start launching function
-                    function_host_handler = asyncio.create_task(launch_function_host(str(funcname(function))[:1000]))
-                    idle_check_handler = asyncio.create_task(self.check_idle_period(str(funcname(function))[:1000]), function_host_handler)
+                    function_host_handler = asyncio.create_task(
+                                                    launch_function_host(
+                                                        str(funcname(function))[:1000]
+                                                        ))
+                    idle_check_handler = asyncio.create_task(
+                                                    self.check_idle_period(
+                                                        str(funcname(function))[:1000], 
+                                                        function_host_handler
+                                                        ))
                     
                     
 
