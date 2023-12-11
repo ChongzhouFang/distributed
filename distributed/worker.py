@@ -19,7 +19,7 @@ import weakref
 "             Changes start.             "
 """"""""""""""""""""""""""""""""""""""""""
 import psutil
-import time
+import time as tm
 """"""""""""""""""""""""""""""""""""""""""
 "             Changes end.               "
 """"""""""""""""""""""""""""""""""""""""""
@@ -542,7 +542,7 @@ class Worker(BaseWorker, ServerNode):
     "             Changes start.             "
     """"""""""""""""""""""""""""""""""""""""""
     # a place to store currently running serverless instances
-    running_instances: list[str]
+    running_function_hosts: list[str]
     function_host_last_active_time: dict[str, Any]
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
@@ -2232,13 +2232,13 @@ class Worker(BaseWorker, ServerNode):
     """"""""""""""""""""""""""""""""""""""""""
     # need further modification
     def add_host(self, function:str) -> None:
-        self.running_instances.append(function)
+        self.running_function_hosts.append(function)
         # retrieve repo from github
-        os.system('wget https://github.com/ChongzhouFang/azure-functions-host/archive/refs/heads/' + function_name + '.zip')
-        os.system('unzip -qq ' + function_name + '.zip')
+        os.system('wget https://github.com/ChongzhouFang/azure-functions-host/archive/refs/heads/' + function + '.zip')
+        os.system('unzip -qq ' + function + '.zip')
 
     def clean_up_host(self, function:str) -> None:
-        self.running_instances.remove(function)
+        self.running_function_hosts.remove(function)
         os.system('rm -rf azure-functions-host-' + function)
         os.system('rm ' + function + '.zip')
         del self.function_host_last_active_time[function]
@@ -2246,7 +2246,7 @@ class Worker(BaseWorker, ServerNode):
     async def check_idle_period(self, name:str, handler) -> None:
         while True:
         # Check if the host has been idle for 3 minutes
-            if time.time() - self.function_host_last_active_time[name] > 180:
+            if tm.time() - self.function_host_last_active_time[name] > 180:
                 logger.info("Host %s has been idle for 3 minutes. Terminating...", name)
                 handler.cancel()
                 break
@@ -2424,10 +2424,16 @@ class Worker(BaseWorker, ServerNode):
                 #             kwargs2,
                 #             self.scheduler_delay,
                 #         )
-                self.function_host_last_active_time[str(funcname(function))[:1000]] = time.time()
+
+                ### Debugging
+                logger.info("running_host = %s", str(self.running_function_hosts))
+                logger.info("function_host_last_active_time = %s", str(self.function_host_last_active_time))
+                ### End debugging
+
+                self.function_host_last_active_time[str(funcname(function))[:1000]] = tm.time()
                 # The result variable in the following two branches simply serves to maintain the original interface
                 # function host exists
-                if str(funcname(function))[:1000] in self.running_instances:
+                if str(funcname(function))[:1000] in self.running_function_hosts:
                     logger.info("Host already exists, name is: %s", str(funcname(function))[:1000])
                     await asyncio.create_subprocess_exec('curl', 'localhost:5000/api/' + str(funcname(function))[:1000])
                 else:
@@ -2444,6 +2450,11 @@ class Worker(BaseWorker, ServerNode):
 
                     self.clean_up_host(str(funcname(function))[:1000])
                 
+                ### Debugging
+                logger.info("running_host = %s", str(self.running_function_hosts))
+                logger.info("function_host_last_active_time = %s", str(self.function_host_last_active_time))
+                ### End debugging
+
                 # exception handling: needs further modification
                 result = {
                         "op": "task-finished",
@@ -3336,7 +3347,7 @@ async def run(server, comm, function, args=(), kwargs=None, wait=True):
 
             # *****needs further modification. What is the name of the function object? *****
             # check if instance exists 
-            if str(funcname(function))[:1000] in server.running_instances:
+            if str(funcname(function))[:1000] in server.running_function_hosts:
                 # needs further modification
                 os.system('curl localhost:5000/api/' + str(funcname(function))[:1000])
                 logger.info("Function is NOT coro, name in running instances, name is: %s", str(funcname(function))[:1000])
