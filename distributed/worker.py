@@ -2452,7 +2452,7 @@ class Worker(BaseWorker, ServerNode):
                     function_host_handler = asyncio.create_task(launch_function_host(str(funcname(function))[:1000]))
                     idle_check_handler = asyncio.create_task(self.check_idle_period(str(funcname(function))[:1000]), function_host_handler)
                     
-                    await function_host_handler
+                    
 
                     idle_check_handler.cancel()
 
