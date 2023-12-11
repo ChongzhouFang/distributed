@@ -2459,8 +2459,9 @@ class Worker(BaseWorker, ServerNode):
                                                         function_host_handler
                                                         ))
                     
+                    await function_host_handler
+                    await idle_check_handler
                     
-
                     idle_check_handler.cancel()
 
                     self.clean_up_host(str(funcname(function))[:1000])
