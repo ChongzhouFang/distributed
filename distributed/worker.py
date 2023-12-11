@@ -2433,6 +2433,9 @@ class Worker(BaseWorker, ServerNode):
                 #             self.scheduler_delay,
                 #         )
 
+
+                #### Problem here: nanny dies unexpectedly
+
                 ### Debugging
                 logger.info("running_host = %s", str(self.running_function_hosts))
                 logger.info("function_host_last_active_time = %s", str(self.function_host_last_active_time))
