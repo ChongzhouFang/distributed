@@ -921,6 +921,15 @@ class Worker(BaseWorker, ServerNode):
             )
         self.lifetime = lifetime
 
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        self.function_host_last_active_time = {}
+        self.running_function_hosts = []
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
+
         Worker._instances.add(self)
 
     ################
