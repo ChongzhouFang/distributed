@@ -206,7 +206,6 @@ class GetDataSuccess(TypedDict):
 async def launch_function_host(function_name: str):
     host_folder = 'azure-functions-host-' + function_name + '/'
     current_folder = os.getcwd()
-    print(os.environ['PATH'])
     try:
         process = await asyncio.create_subprocess_exec(
             'dotnet', 'run', '--project',
@@ -2470,7 +2469,7 @@ class Worker(BaseWorker, ServerNode):
                         "status": "OK",
                         "result": None,
                         "nbytes": 0,
-                        "type": type(result) if result is not None else None,
+                        "type": None,
                     }
 
                 result["start"] = 0
