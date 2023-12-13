@@ -76,9 +76,16 @@ async def main():
     print('Times up! Closing host.')
     task_handler.cancel()
 
-     
+
+async def test_command():
+    res = await asyncio.create_subprocess_exec('curl', 'http://localhost:5000/api/warmup')
+    print(res)
+
 if __name__ == '__main__':
     # c = distributed.Client('tcp://192.168.1.111:8786')
     # futures = c.submit(exec, command)
-    asyncio.run(main())
+
+    # asyncio.run(main())
+
+    asyncio.run(test_command())
     
