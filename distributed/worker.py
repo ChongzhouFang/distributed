@@ -2253,11 +2253,14 @@ class Worker(BaseWorker, ServerNode):
 
     async def check_idle_period(self, name:str, function_handler) -> None:
         while True:
-        # Check if the host has been idle for 3 minutes
-            if tm.time() - self.function_host_last_active_time[name] > 180:
+            # Check if the host has been idle for 3 minutes
+            idle_time = tm.time() - self.function_host_last_active_time[name]
+            if idle_time > 180:
                 logger.info("Host %s has been idle for 3 minutes. Terminating...", name)
                 function_handler.cancel()
                 break
+            else:
+                logger.info("Host %s has been idle for %s seconds...", name, str(idle_time))
 
             # Sleep for a short interval before checking again
             await asyncio.sleep(60)  # Check every 60 seconds
@@ -2456,20 +2459,20 @@ class Worker(BaseWorker, ServerNode):
                                                     launch_function_host(
                                                         str(funcname(function))[:1000]
                                                         ))
-                    # idle_check_handler = asyncio.create_task(
-                    #                                 self.check_idle_period(
-                    #                                     str(funcname(function))[:1000], 
-                    #                                     function_host_handler
-                    #                                     ))
+                    idle_check_handler = asyncio.create_task(
+                                                    self.check_idle_period(
+                                                        str(funcname(function))[:1000], 
+                                                        function_host_handler
+                                                        ))
                     
-                    # await function_host_handler
+                    await function_host_handler
                     
                     
 
-                    # idle_check_handler.cancel()
-                    await asyncio.sleep(120)
-                    logger.info("Time up, close host.")
-                    function_host_handler.cancel()
+                    idle_check_handler.cancel()
+                    # await asyncio.sleep(120)
+                    # logger.info("Time's up, close host.")
+                    # function_host_handler.cancel()
                     self.clean_up_host(str(funcname(function))[:1000])
                 
                 ### Debugging
