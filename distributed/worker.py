@@ -2239,17 +2239,17 @@ class Worker(BaseWorker, ServerNode):
     "             Changes start.             "
     """"""""""""""""""""""""""""""""""""""""""
     # need further modification
-    def add_host(self, function:str) -> None:
-        self.running_function_hosts.append(function)
+    def add_host(self, function_name:str) -> None:
+        self.running_function_hosts.append(function_name)
         # retrieve repo from github
-        os.system('wget https://github.com/ChongzhouFang/azure-functions-host/archive/refs/heads/' + function + '.zip')
-        os.system('unzip -qq ' + function + '.zip')
+        os.system('wget https://github.com/ChongzhouFang/azure-functions-host/archive/refs/heads/' + function_name + '.zip')
+        os.system('unzip -qq ' + function_name + '.zip')
 
-    def clean_up_host(self, function:str) -> None:
-        self.running_function_hosts.remove(function)
-        os.system('rm -rf azure-functions-host-' + function)
-        os.system('rm ' + function + '.zip')
-        del self.function_host_last_active_time[function]
+    def clean_up_host(self, function_name:str) -> None:
+        self.running_function_hosts.remove(function_name)
+        os.system('rm -rf azure-functions-host-' + function_name)
+        os.system('rm ' + function_name + '.zip')
+        del self.function_host_last_active_time[function_name]
 
     async def check_idle_period(self, name:str, function_handler) -> None:
         while True:
@@ -2454,6 +2454,9 @@ class Worker(BaseWorker, ServerNode):
                     # cold starts
                     logger.info("Function host cold starts, name is: %s", str(funcname(function))[:1000])
                     self.add_host(str(funcname(function))[:1000])
+                    logger.info("Prepared to launch function host.")
+                    logger.info("Currently running_host = %s", str(self.running_function_hosts))
+                    logger.info("function_host_last_active_time = %s", str(self.function_host_last_active_time))
                     # start launching function
                     function_host_handler = asyncio.create_task(
                                                     launch_function_host(
@@ -2476,7 +2479,7 @@ class Worker(BaseWorker, ServerNode):
                     self.clean_up_host(str(funcname(function))[:1000])
                 
                 ### Debugging
-                logger.info("running_host = %s", str(self.running_function_hosts))
+                logger.info("running host %s", str(self.running_function_hosts))
                 logger.info("function_host_last_active_time = %s", str(self.function_host_last_active_time))
                 ### End debugging
 
