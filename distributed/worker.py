@@ -2382,10 +2382,10 @@ class Worker(BaseWorker, ServerNode):
             "             Changes end.               "
             """"""""""""""""""""""""""""""""""""""""""
             try:
+                ts.start_time = time()
                 """"""""""""""""""""""""""""""""""""""""""
                 "             Changes start.             "
                 """"""""""""""""""""""""""""""""""""""""""
-                # ts.start_time = time()
                 # if iscoroutinefunction(function):
                 #     token = _worker_cvar.set(self)
                 #     try:
