@@ -20,7 +20,7 @@ import weakref
 """"""""""""""""""""""""""""""""""""""""""
 import psutil
 import time as tm
-import port_assignment
+from . import port_assignment
 """"""""""""""""""""""""""""""""""""""""""
 "             Changes end.               "
 """"""""""""""""""""""""""""""""""""""""""
