@@ -4,5 +4,7 @@ port_assignment = {
     'jsondumpsloads':3345,
     'linpack':4345,
     'matmul':5345,
-    'pyaes':6345
+    'pyaes':6345,
+    'imageprocessing':7345,
+    'startup':8345
 }
