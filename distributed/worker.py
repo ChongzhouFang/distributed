@@ -211,7 +211,7 @@ async def launch_function_host(function_name: str):
         process = await asyncio.create_subprocess_exec(
             'dotnet', 'run', '--project',
             os.path.join(current_folder, host_folder, 'src/WebJobs.Script.WebHost/WebJobs.Script.WebHost.csproj'),
-            '--urls', 'http://localhost:' + str(port_assignment.port_assignment[function_name])
+            '--urls', 'http://localhost:' + str(port_assignment.port_assignment[function_name]),
             env={
                     'AZURE_FUNCTIONS_ENVIRONMENT': 'Development',
                     'AzureWebJobsScriptRoot': os.path.join(current_folder, host_folder, 'src/WebJobs.Script.WebHost/Resources/Functions/'),
