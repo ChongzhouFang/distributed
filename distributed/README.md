@@ -58,8 +58,7 @@ and
 Change lists:
 ```
 scheduler.py
-├── Added utility functions gcd(), pairwiseCoprimeNumberUtil()
-├── TaskState: add element schedule_hash (problem: where is the key generated?)
+├── TaskState: 
 │   ├── Added function generate_schedule_hash()
 │   ├── Added definition of schedule_hash to __init__()
 ├── WorkerState: add element running_hosts to store currently running function host instances

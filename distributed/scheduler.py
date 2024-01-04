@@ -148,36 +148,6 @@ if TYPE_CHECKING:
     from dask.highlevelgraph import HighLevelGraph
 
 
-""""""""""""""""""""""""""""""""""""""""""
-"             Changes start.             "
-""""""""""""""""""""""""""""""""""""""""""
-# define utility functions
-
-# Euclidean algorithm to determine the greatest-common-divisor
-def gcd(a: int, b: int) -> int:
-    if (b == 0):
-        return a
-    else:
-        return gcd(b, a % b)
-def pairwiseCoprimeNumberUtil(x: int) -> set[int]:
-    primes = set()
-    for i in range(1, x):
-        ifAdd = True # flag to determine if current element should be added to primes
-        if gcd(i, x) == 1:
-            for j in primes:
-                if gcd(j, i) != 1:
-                    ifAdd = False
-                    break
-        else: 
-            ifAdd = False
-        if ifAdd:
-            primes.add(i)
-    return primes
-""""""""""""""""""""""""""""""""""""""""""
-"             Changes end.               "
-""""""""""""""""""""""""""""""""""""""""""
-
-
 # Not to be confused with distributed.worker_state_machine.TaskStateState
 TaskStateState: TypeAlias = Literal[
     "released",
@@ -1414,15 +1384,6 @@ class TaskState:
     #: be rejected.
     run_id: int | None
 
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes start.             "
-    """"""""""""""""""""""""""""""""""""""""""
-    # A string of hash for scheduling purposes. 
-    schedule_hash: str
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes end.               "
-    """"""""""""""""""""""""""""""""""""""""""
-
     #: Cached hash of :attr:`~TaskState.client_key`
     _hash: int
 
@@ -1479,13 +1440,6 @@ class TaskState:
         self.annotations = {}
         self.erred_on = set()
         self.run_id = None
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""
-        self.schedule_hash = None
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
         TaskState._instances.add(self)
 
     def __hash__(self) -> int:
@@ -1580,20 +1534,6 @@ class TaskState:
         chain of ~200+ tasks.
         """
         return recursive_to_dict(self, exclude=exclude, members=True)
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes start.             "
-    """"""""""""""""""""""""""""""""""""""""""
-    # generates schedule_hash
-    def generate_schedule_hash(self):
-        # client_id = list(self.who_wants)[0].client_key
-        operation = re.split('-', self.key)[0]
-        logger.info('Operation: %s', operation)
-        # self.schedule_hash = abs(hash(client_id) ^ hash(operation))
-        self.schedule_hash = hash(operation)
-        logger.info('Schedule Hash: %s', self.schedule_hash)
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes end.               "
-    """"""""""""""""""""""""""""""""""""""""""
 
 class Transition(NamedTuple):
     """An entry in :attr:`SchedulerState.transition_log`"""
@@ -1881,15 +1821,6 @@ class SchedulerState:
     ) -> TaskState:
         """Create a new task, and associated states"""
         ts = TaskState(key, spec, state)
-
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""
-        # generate hash value for later usage
-        ts.generate_schedule_hash()
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
 
         prefix_key = key_split(key)
         tp = self.task_prefixes.get(prefix_key)
@@ -2220,40 +2151,10 @@ class SchedulerState:
         # if not pool:
         #     return None
 
-        pool = self.running
+        pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
-        
-        ws = None
-
-        # determine the home invoker id
-        num_invokers = len(pool)
-        home_invoker_id = ts.schedule_hash % num_invokers
-
-        # determine steps
-        steps = pairwiseCoprimeNumberUtil(num_invokers)
-
-        # determine which step to use
-        step = list(steps)[ts.schedule_hash % len(steps)]
-
-        invoker_id = home_invoker_id
-        while True:
-            if (
-                list(pool)[invoker_id].status ==  Status.running
-                and list(pool)[invoker_id].address in self.idle.keys()
-            ):
-                ws = list(pool)[invoker_id]
-                break
-            else:
-                invoker_id = (invoker_id + step) % num_invokers
-                if invoker_id == home_invoker_id:
-                    # Already gone through all potential invokers, now randomly select one healthy idle server
-                    import random
-                    idle_pool = self.idle.values()
-                    if not idle_pool:
-                        return None
-                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
-                    break
+        ws = list(pool)[random.randint(0, len(pool) - 1)]
 
         ### Start of the original code from dask.distributed
         # tg = ts.group
@@ -2340,41 +2241,10 @@ class SchedulerState:
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes start.             "
         """"""""""""""""""""""""""""""""""""""""""
-        pool = self.running
+        pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
-        
-        ws = None
-
-        # determine the home invoker id
-        num_invokers = len(pool)
-        home_invoker_id = ts.schedule_hash % num_invokers
-
-        # determine steps
-        steps = pairwiseCoprimeNumberUtil(num_invokers)
-
-        # determine which step to use
-        step = list(steps)[ts.schedule_hash % len(steps)]
-
-        invoker_id = home_invoker_id
-        while True:
-            if (
-                list(pool)[invoker_id].status ==  Status.running
-                and list(pool)[invoker_id].address in self.idle.keys()
-            ):
-                ws = list(pool)[invoker_id]
-                break
-            else:
-                invoker_id = (invoker_id + step) % num_invokers
-                if invoker_id == home_invoker_id:
-                    # Already gone through all potential invokers, now randomly select one healthy idle server
-                    import random
-                    idle_pool = self.idle.values()
-                    if not idle_pool:
-                        # Queued
-                        return None
-                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
-                    break
+        ws = list(pool)[random.randint(0, len(pool) - 1)]
         ### Start of the original code from dask.distributed
         # Just pick the least busy worker.
         # NOTE: this will lead to worst-case scheduling with regards to co-assignment.
@@ -2424,51 +2294,10 @@ class SchedulerState:
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes start.             "
         """"""""""""""""""""""""""""""""""""""""""
-        pool = self.running
+        pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
-        
-        ws = None
-
-        # determine the home invoker id
-        num_invokers = len(pool)
-        home_invoker_id = ts.schedule_hash % num_invokers
-
-        # determine steps
-        steps = pairwiseCoprimeNumberUtil(num_invokers)
-
-        # determine which step to use
-        step = list(steps)[ts.schedule_hash % len(steps)]
-
-        invoker_id = home_invoker_id
-
-        # debugging info
-        logger.info('Home invoker index = %d', invoker_id)
-
-        while True:
-            if (
-                list(pool)[invoker_id].status ==  Status.running
-                and list(pool)[invoker_id].address in self.idle.keys()
-            ):
-                ws = list(pool)[invoker_id]
-                # debugging info
-                logger.info('Decided worker at the first stage. Worker index = %d', invoker_id)
-                break
-            else:
-                invoker_id = (invoker_id + step) % num_invokers
-                # debugging info
-                logger.info('Changing invoker index. Invoker index = %d', invoker_id)
-                if invoker_id == home_invoker_id:
-                    # Already gone through all potential invokers, now randomly select one healthy idle server
-                    import random
-                    idle_pool = self.idle.values()
-                    if not idle_pool:
-                        # Queued
-                        return None
-                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
-                    # debugging info
-                    logger.info('Decided worker at the second stage. Worker index = %d', invoker_id)
-                    break
+        ws = list(pool)[random.randint(0, len(pool) - 1)]
         ### Start of the original code from dask.distributed
         # valid_workers = self.valid_workers(ts)
         # if valid_workers is None and len(self.running) < len(self.workers):
