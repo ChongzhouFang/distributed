@@ -10,6 +10,12 @@ def warmup(data):
         data
     )
 
+def linpack(data):
+    print(
+        "Linpack!",
+        data
+    )
+
 if __name__ == '__main__':
     c = distributed.Client('tcp://192.168.1.111:8786')
     futures = c.submit(warmup, random.randint(1,10000))
