@@ -2220,7 +2220,7 @@ class SchedulerState:
         # if not pool:
         #     return None
 
-        pool = self.running
+        pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
         
@@ -2228,6 +2228,7 @@ class SchedulerState:
 
         # determine the home invoker id
         num_invokers = len(pool)
+        logger.info("num_invokers = %s", str(num_invokers))
         home_invoker_id = ts.schedule_hash % num_invokers
 
         # determine steps
@@ -2340,7 +2341,7 @@ class SchedulerState:
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes start.             "
         """"""""""""""""""""""""""""""""""""""""""
-        pool = self.running
+        pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
         
@@ -2348,6 +2349,7 @@ class SchedulerState:
 
         # determine the home invoker id
         num_invokers = len(pool)
+        logger.info("num_invokers = %s", str(num_invokers))
         home_invoker_id = ts.schedule_hash % num_invokers
 
         # determine steps
@@ -2424,7 +2426,7 @@ class SchedulerState:
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes start.             "
         """"""""""""""""""""""""""""""""""""""""""
-        pool = self.running
+        pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
         
@@ -2432,6 +2434,7 @@ class SchedulerState:
 
         # determine the home invoker id
         num_invokers = len(pool)
+        logger.info("num_invokers = %s", str(num_invokers))
         home_invoker_id = ts.schedule_hash % num_invokers
 
         # determine steps
