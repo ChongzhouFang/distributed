@@ -204,7 +204,9 @@ class GetDataSuccess(TypedDict):
 "             Changes start.             "
 """"""""""""""""""""""""""""""""""""""""""
 # Coroutine to launch a function host
-async def launch_function_host(function_name: str):
+async def launch_function_host(function_name_origin: str):
+    # extract original function name
+    function_name = re.split('-', function_name_origin)[0]
     host_folder = 'azure-functions-host-' + function_name + '/'
     current_folder = os.getcwd()
     try:
@@ -2244,13 +2246,13 @@ class Worker(BaseWorker, ServerNode):
     def add_host(self, function_name:str) -> None:
         self.running_function_hosts.append(function_name)
         # retrieve repo from github
-        os.system('wget https://github.com/ChongzhouFang/azure-functions-host/archive/refs/heads/' + function_name + '.zip')
-        os.system('unzip -qq ' + function_name + '.zip')
+        os.system('wget https://github.com/ChongzhouFang/azure-functions-host/archive/refs/heads/' + re.split('-', function_name)[0] + '.zip')
+        os.system('unzip -qq ' + re.split('-', function_name)[0] + '.zip')
 
     def clean_up_host(self, function_name:str) -> None:
         self.running_function_hosts.remove(function_name)
-        os.system('rm -rf azure-functions-host-' + function_name)
-        os.system('rm ' + function_name + '.zip')
+        os.system('rm -rf azure-functions-host-' + re.split('-', function_name)[0])
+        os.system('rm ' + re.split('-', function_name)[0] + '.zip')
         del self.function_host_last_active_time[function_name]
 
     async def check_idle_period(self, name:str, function_handler) -> None:
