@@ -1585,11 +1585,18 @@ class TaskState:
     """"""""""""""""""""""""""""""""""""""""""
     # generates schedule_hash
     def generate_schedule_hash(self):
+        randomization = False
         # client_id = list(self.who_wants)[0].client_key
         operation = re.split('-', self.key)[0]
         logger.info('Operation: %s', operation)
         # self.schedule_hash = abs(hash(client_id) ^ hash(operation))
-        self.schedule_hash = hash(operation)
+        if randomization:
+            self.schedule_hash = hash(operation)
+        else:
+            import hashlib
+            m = hashlib.sha1()
+            m.update(operation.encode())
+            self.schedule_hash = int(m.hexdigest(), 16)
         logger.info('Schedule Hash: %s', self.schedule_hash)
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
