@@ -2260,7 +2260,7 @@ class Worker(BaseWorker, ServerNode):
         while True:
             # Check if the host has been idle for 3 minutes
             idle_time = tm.time() - self.function_host_last_active_time[name]
-            if idle_time > 180:
+            if idle_time > 600:
                 logger.info("Host %s has been idle for 3 minutes. Terminating...", name)
                 function_handler.cancel()
                 break
@@ -2498,7 +2498,7 @@ class Worker(BaseWorker, ServerNode):
                     }
 
                 result["start"] = 0
-                result["stop"] = 180
+                result["stop"] = 600
                 result["thread"] = threading.get_ident()
 
                 """"""""""""""""""""""""""""""""""""""""""
