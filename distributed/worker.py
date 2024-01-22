@@ -2452,9 +2452,10 @@ class Worker(BaseWorker, ServerNode):
                 self.function_host_last_active_time[str(funcname(function))[:1000]] = tm.time()
                 # The result variable in the following two branches simply serves to maintain the original interface
                 # function host exists
+                host_name = re.split('_', str(funcname(function))[:1000])[0]
                 if str(funcname(function))[:1000] in self.running_function_hosts:
                     logger.info("Host already exists, name is: %s", str(funcname(function))[:1000])
-                    await asyncio.create_subprocess_exec('curl', 'localhost:' + str(port_assignment.port_assignment[str(funcname(function))[:1000]]) +'/api/' + str(funcname(function))[:1000])
+                    await asyncio.create_subprocess_exec('curl', 'localhost:' + str(port_assignment.port_assignment[host_name]) +'/api/' + host_name)
                 else:
                     # cold starts
                     logger.info("Function host cold starts, name is: %s", str(funcname(function))[:1000])
@@ -3378,7 +3379,6 @@ async def run(server, comm, function, args=(), kwargs=None, wait=True):
             """"""""""""""""""""""""""""""""""""""""""
             # submitted function is not python asyncio coroutine (of course not)
 
-            # *****needs further modification. What is the name of the function object? *****
             # check if instance exists 
             if str(funcname(function))[:1000] in server.running_function_hosts:
                 # needs further modification
