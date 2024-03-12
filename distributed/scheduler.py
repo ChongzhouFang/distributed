@@ -152,27 +152,18 @@ if TYPE_CHECKING:
 "             Changes start.             "
 """"""""""""""""""""""""""""""""""""""""""
 # define utility functions
+# return the number of already cached packages
+# @param requiredPackage: packages an application requires
+# @param cachedPackage: packages already cached at server
+def cntCachedPackage(requiredPackage: set[str],
+                     cachedPackage:set[str]):
+    cnt = 0
+    for p in requiredPackage:
+        if p in cachedPackage:
+            cnt += 1
+    
+    return cnt
 
-# Euclidean algorithm to determine the greatest-common-divisor
-def gcd(a: int, b: int) -> int:
-    if (b == 0):
-        return a
-    else:
-        return gcd(b, a % b)
-def pairwiseCoprimeNumberUtil(x: int) -> set[int]:
-    primes = set()
-    for i in range(1, x):
-        ifAdd = True # flag to determine if current element should be added to primes
-        if gcd(i, x) == 1:
-            for j in primes:
-                if gcd(j, i) != 1:
-                    ifAdd = False
-                    break
-        else: 
-            ifAdd = False
-        if ifAdd:
-            primes.add(i)
-    return primes
 """"""""""""""""""""""""""""""""""""""""""
 "             Changes end.               "
 """"""""""""""""""""""""""""""""""""""""""
@@ -543,6 +534,7 @@ class WorkerState:
     """"""""""""""""""""""""""""""""""""""""""
     # Store the currently running function hosts
     running_hosts: set[str]
+    cached_packages: set[str]
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
     """"""""""""""""""""""""""""""""""""""""""
@@ -605,6 +597,15 @@ class WorkerState:
         self.needs_what = {}
         self._network_occ = 0
         self._occupancy_cache = None
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        # Store the currently running function hosts
+        self.cached_packages = list[str]
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
+
 
     def __hash__(self) -> int:
         return self._hash
@@ -1418,7 +1419,7 @@ class TaskState:
     "             Changes start.             "
     """"""""""""""""""""""""""""""""""""""""""
     # A string of hash for scheduling purposes. 
-    schedule_hash: str
+    requiredPackages: set[str]
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
     """"""""""""""""""""""""""""""""""""""""""
@@ -1482,7 +1483,7 @@ class TaskState:
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes start.             "
         """"""""""""""""""""""""""""""""""""""""""
-        self.schedule_hash = None
+        self.requiredPackages = self.extractRequiredPackage()
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -1583,21 +1584,13 @@ class TaskState:
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes start.             "
     """"""""""""""""""""""""""""""""""""""""""
-    # generates schedule_hash
-    def generate_schedule_hash(self):
-        randomization = True
-        # client_id = list(self.who_wants)[0].client_key
-        operation = re.split('-', self.key)[0]
-        logger.info('Operation: %s', operation)
-        # self.schedule_hash = abs(hash(client_id) ^ hash(operation))
-        if randomization:
-            self.schedule_hash = hash(operation)
-        else:
-            import hashlib
-            m = hashlib.sha1()
-            m.update(operation.encode())
-            self.schedule_hash = int(m.hexdigest(), 16)
-        logger.info('Schedule Hash: %s', self.schedule_hash)
+    # extract required packages
+    def extractRequiredPackage(self):
+        from . import required_packages
+        function, args, kwargs = self.run_spec
+        logger.info('Function name is %s', str(funcname(function))[:1000])
+        return required_packages.required_packages[str(funcname(function))[:1000]]
+    
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
     """"""""""""""""""""""""""""""""""""""""""
@@ -1892,8 +1885,8 @@ class SchedulerState:
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes start.             "
         """"""""""""""""""""""""""""""""""""""""""
-        # generate hash value for later usage
-        ts.generate_schedule_hash()
+        # generate required package info
+        ts.extractRequiredPackage()
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2236,16 +2229,23 @@ class SchedulerState:
         # determine the home invoker id
         num_invokers = len(pool)
         logger.info("num_invokers = %s", str(num_invokers))
-        home_invoker_id = ts.schedule_hash % num_invokers
-
-        # determine steps
-        steps = pairwiseCoprimeNumberUtil(num_invokers)
-
-        # determine which step to use
-        step = list(steps)[ts.schedule_hash % len(steps)]
-
-        invoker_id = home_invoker_id
+        # record how many packages are cached on each node
+        cnt_cached_packages = {}
+        for id in range(num_invokers):
+            cnt = cntCachedPackage(ts.requiredPackages, list(pool)[id].cached_packages)
+            cnt_cached_packages[id] = cnt
+        
         while True:
+            invoker_id = max(cnt_cached_packages, cnt_cached_packages.get)
+            # no server with cached package, randomly choose one
+            if cnt_cached_packages[invoker_id] == 0: 
+                import random
+                idle_pool = self.idle.values()
+                if not idle_pool:
+                    return None
+                ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
+                break
+
             if (
                 list(pool)[invoker_id].status ==  Status.running
                 and list(pool)[invoker_id].address in self.idle.keys()
@@ -2253,16 +2253,9 @@ class SchedulerState:
                 ws = list(pool)[invoker_id]
                 break
             else:
-                invoker_id = (invoker_id + step) % num_invokers
-                if invoker_id == home_invoker_id:
-                    # Already gone through all potential invokers, now randomly select one healthy idle server
-                    import random
-                    idle_pool = self.idle.values()
-                    if not idle_pool:
-                        return None
-                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
-                    break
-
+                # remove current id info in cnt_cached_packages
+                del cnt_cached_packages[invoker_id]
+            
         ### Start of the original code from dask.distributed
         # tg = ts.group
         # lws = tg.last_worker
@@ -2357,16 +2350,22 @@ class SchedulerState:
         # determine the home invoker id
         num_invokers = len(pool)
         logger.info("num_invokers = %s", str(num_invokers))
-        home_invoker_id = ts.schedule_hash % num_invokers
-
-        # determine steps
-        steps = pairwiseCoprimeNumberUtil(num_invokers)
-
-        # determine which step to use
-        step = list(steps)[ts.schedule_hash % len(steps)]
-
-        invoker_id = home_invoker_id
+        cnt_cached_packages = {}
+        for id in range(num_invokers):
+            cnt = cntCachedPackage(ts.requiredPackages, list(pool)[id].cached_packages)
+            cnt_cached_packages[id] = cnt
+        
         while True:
+            invoker_id = max(cnt_cached_packages, cnt_cached_packages.get)
+            # no server with cached package, randomly choose one
+            if cnt_cached_packages[invoker_id] == 0: 
+                import random
+                idle_pool = self.idle.values()
+                if not idle_pool:
+                    return None
+                ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
+                break
+
             if (
                 list(pool)[invoker_id].status ==  Status.running
                 and list(pool)[invoker_id].address in self.idle.keys()
@@ -2374,16 +2373,8 @@ class SchedulerState:
                 ws = list(pool)[invoker_id]
                 break
             else:
-                invoker_id = (invoker_id + step) % num_invokers
-                if invoker_id == home_invoker_id:
-                    # Already gone through all potential invokers, now randomly select one healthy idle server
-                    import random
-                    idle_pool = self.idle.values()
-                    if not idle_pool:
-                        # Queued
-                        return None
-                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
-                    break
+                # remove current id info in cnt_cached_packages
+                del cnt_cached_packages[invoker_id]
         ### Start of the original code from dask.distributed
         # Just pick the least busy worker.
         # NOTE: this will lead to worst-case scheduling with regards to co-assignment.
@@ -2442,43 +2433,35 @@ class SchedulerState:
         # determine the home invoker id
         num_invokers = len(pool)
         logger.info("num_invokers = %s", str(num_invokers))
-        home_invoker_id = ts.schedule_hash % num_invokers
-
-        # determine steps
-        steps = pairwiseCoprimeNumberUtil(num_invokers)
-
-        # determine which step to use
-        step = list(steps)[ts.schedule_hash % len(steps)]
-
-        invoker_id = home_invoker_id
-
-        # debugging info
-        logger.info('Home invoker index = %d', invoker_id)
-
+        cnt_cached_packages = {}
+        for id in range(num_invokers):
+            cnt = cntCachedPackage(ts.requiredPackages, list(pool)[id].cached_packages)
+            cnt_cached_packages[id] = cnt
+        
         while True:
+            invoker_id = max(cnt_cached_packages, cnt_cached_packages.get)
+            # no server with cached package, randomly choose one
+            if cnt_cached_packages[invoker_id] == 0: 
+                import random
+                idle_pool = self.idle.values()
+                if not idle_pool:
+                    return None
+                invoker_id = random.randint(0, len(idle_pool) - 1)
+                ws = list(idle_pool)[invoker_id]
+                logger.info('Decided worker at the second stage. Worker index = %d', invoker_id)
+                break
+
             if (
                 list(pool)[invoker_id].status ==  Status.running
                 and list(pool)[invoker_id].address in self.idle.keys()
             ):
-                ws = list(pool)[invoker_id]
-                # debugging info
                 logger.info('Decided worker at the first stage. Worker index = %d', invoker_id)
+                ws = list(pool)[invoker_id]
                 break
             else:
-                invoker_id = (invoker_id + step) % num_invokers
-                # debugging info
-                logger.info('Changing invoker index. Invoker index = %d', invoker_id)
-                if invoker_id == home_invoker_id:
-                    # Already gone through all potential invokers, now randomly select one healthy idle server
-                    import random
-                    idle_pool = self.idle.values()
-                    if not idle_pool:
-                        # Queued
-                        return None
-                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
-                    # debugging info
-                    logger.info('Decided worker at the second stage. Worker index = %d', invoker_id)
-                    break
+                # remove current id info in cnt_cached_packages
+                del cnt_cached_packages[invoker_id]
+        
         ### Start of the original code from dask.distributed
         # valid_workers = self.valid_workers(ts)
         # if valid_workers is None and len(self.running) < len(self.workers):
