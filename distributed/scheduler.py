@@ -2471,8 +2471,11 @@ class SchedulerState:
         logger.info("num_invokers = %s", str(num_invokers))
         cnt_cached_packages = {}
         for id in range(num_invokers):
-            logger.info(str(self.cached_packages.keys()))
-            cnt = cntCachedPackage(ts.requiredPackages, self.cached_packages[list(pool)[id].address])
+            try:
+                cnt = cntCachedPackage(ts.requiredPackages, self.cached_packages[list(pool)[id].address])
+            except KeyError:
+                logger.info(str(self.cached_packages.keys()))
+                return None
             cnt_cached_packages[id] = cnt
         
         while True:
