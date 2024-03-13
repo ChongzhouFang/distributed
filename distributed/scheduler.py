@@ -2260,6 +2260,7 @@ class SchedulerState:
         # record how many packages are cached on each node
         cnt_cached_packages = {}
         for id in range(num_invokers):
+            logger.info(str(self.cached_packages.keys()))
             cnt = cntCachedPackage(ts.requiredPackages, self.cached_packages[list(pool)[id].address])
             cnt_cached_packages[id] = cnt
         
@@ -2470,6 +2471,7 @@ class SchedulerState:
         logger.info("num_invokers = %s", str(num_invokers))
         cnt_cached_packages = {}
         for id in range(num_invokers):
+            logger.info(str(self.cached_packages.keys()))
             cnt = cntCachedPackage(ts.requiredPackages, self.cached_packages[list(pool)[id].address])
             cnt_cached_packages[id] = cnt
         
