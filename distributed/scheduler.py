@@ -1810,7 +1810,7 @@ class SchedulerState:
         # init cached_packages
         self.cached_packages = {}
         for ws in self.workers.values():
-            self.cached_packages[ws.address] = []
+            self.cached_packages[ws.address] = [None]
         
         logger.info(str(self.cached_packages.keys()))
         """"""""""""""""""""""""""""""""""""""""""
@@ -4556,6 +4556,13 @@ class Scheduler(SchedulerState, ServerNode):
             server_id=server_id,
             scheduler=self,
         )
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        self.cached_packages[address] = []
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
         if ws.status == Status.running:
             self.running.add(ws)
 
@@ -5326,6 +5333,13 @@ class Scheduler(SchedulerState, ServerNode):
         self.idle_task_count.discard(ws)
         self.saturated.discard(ws)
         del self.workers[address]
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        del self.cached_packages[address]
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
         ws.status = Status.closed
         self.running.discard(ws)
 
