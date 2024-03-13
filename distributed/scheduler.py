@@ -1779,6 +1779,8 @@ class SchedulerState:
         self.replicated_tasks = {
             ts for ts in self.tasks.values() if len(ts.who_has) > 1
         }
+
+
         self.computations = deque(
             maxlen=dask.config.get("distributed.diagnostics.computations.max-history")
         )
@@ -1801,6 +1803,19 @@ class SchedulerState:
             ws for ws in self.workers.values() if ws.status == Status.running
         }
         self.plugins = {} if not plugins else {_get_plugin_name(p): p for p in plugins}
+
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        # init cached_packages
+        self.cached_packages = {}
+        for ws in self.workers.values():
+            self.cached_packages[ws.address] = []
+        
+        logger.info(str(self.cached_packages.keys()))
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
 
         self.transition_log = deque(
             maxlen=dask.config.get("distributed.scheduler.transition-log-length")
@@ -1846,18 +1861,7 @@ class SchedulerState:
                 + repr(self.WORKER_SATURATION)
             )
 
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""
-        # init cached_packages
-        self.cached_packages = {}
-        for ws in self.workers.values():
-            self.cached_packages[ws.address] = []
         
-        logger.info(str(self.cached_packages.keys()))
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
 
     @property
     def memory(self) -> MemoryState:
@@ -2475,6 +2479,7 @@ class SchedulerState:
                 cnt = cntCachedPackage(ts.requiredPackages, self.cached_packages[list(pool)[id].address])
             except KeyError:
                 logger.info(str(self.cached_packages.keys()))
+                logger.info(str(self.running))
                 return None
             cnt_cached_packages[id] = cnt
         
