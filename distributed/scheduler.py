@@ -1850,9 +1850,10 @@ class SchedulerState:
         "             Changes start.             "
         """"""""""""""""""""""""""""""""""""""""""
         # init cached_packages
-        self.cached_packages = {
-            ws.address: [] for ws in self.workers.values()
-        }
+        self.cached_packages = {}
+        for ws in self.workers.values():
+            self.cached_packages[ws.address] = []
+        
         logger.info(str(self.cached_packages.keys()))
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
