@@ -2474,9 +2474,19 @@ class SchedulerState:
         num_invokers = len(pool)
         logger.info("num_invokers = %s", str(num_invokers))
         cnt_cached_packages = {}
+
+        #### Debug####
+        logger.info("Required package: %s", str(ts.requiredPackages))
+        ##############
+
         for id in range(num_invokers):
             try:
                 cnt = cntCachedPackage(ts.requiredPackages, self.cached_packages[list(pool)[id].address])
+
+                #### Debug####
+                logger.info("Server address: %s, Cached package: %s", list(pool)[id].address, str(self.cached_packages[list(pool)[id].address]))
+                ##############
+
             except KeyError:
                 logger.info(str(self.cached_packages.keys()))
                 logger.info(str(self.running))
@@ -2493,15 +2503,16 @@ class SchedulerState:
                     return None
                 invoker_id = random.randint(0, len(idle_pool) - 1)
                 ws = list(idle_pool)[invoker_id]
-                logger.info('Decided worker at the second stage. Worker index = %d', invoker_id)
+                logger.info('Decided worker at the second stage. Worker address = %d', ws.address)
                 break
 
             if (
                 list(pool)[invoker_id].status ==  Status.running
                 and list(pool)[invoker_id].address in self.idle.keys()
             ):
-                logger.info('Decided worker at the first stage. Worker index = %d', invoker_id)
+                
                 ws = list(pool)[invoker_id]
+                logger.info('Decided worker at the first stage. Worker address = %d', ws.address)
                 break
             else:
                 # remove current id info in cnt_cached_packages
