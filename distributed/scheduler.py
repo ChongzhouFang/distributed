@@ -2269,7 +2269,7 @@ class SchedulerState:
             cnt_cached_packages[id] = cnt
         
         while True:
-            invoker_id = max(cnt_cached_packages, cnt_cached_packages.get)
+            invoker_id = max(cnt_cached_packages, key = cnt_cached_packages.get)
             # no server with cached package, randomly choose one
             if cnt_cached_packages[invoker_id] == 0: 
                 import random
@@ -2393,7 +2393,7 @@ class SchedulerState:
             cnt_cached_packages[id] = cnt
         
         while True:
-            invoker_id = max(cnt_cached_packages, cnt_cached_packages.get)
+            invoker_id = max(cnt_cached_packages, key = cnt_cached_packages.get)
             # no server with cached package, randomly choose one
             if cnt_cached_packages[invoker_id] == 0: 
                 import random
@@ -2484,7 +2484,7 @@ class SchedulerState:
             cnt_cached_packages[id] = cnt
         
         while True:
-            invoker_id = max(cnt_cached_packages, cnt_cached_packages.get)
+            invoker_id = max(cnt_cached_packages, key = cnt_cached_packages.get)
             # no server with cached package, randomly choose one
             if cnt_cached_packages[invoker_id] == 0: 
                 import random
