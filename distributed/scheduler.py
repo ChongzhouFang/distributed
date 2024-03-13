@@ -2503,7 +2503,7 @@ class SchedulerState:
                     return None
                 invoker_id = random.randint(0, len(idle_pool) - 1)
                 ws = list(idle_pool)[invoker_id]
-                logger.info('Decided worker at the second stage. Worker address = %d', ws.address)
+                logger.info('Decided worker at the second stage. Worker address = %s', ws.address)
                 break
 
             if (
@@ -2512,7 +2512,7 @@ class SchedulerState:
             ):
                 
                 ws = list(pool)[invoker_id]
-                logger.info('Decided worker at the first stage. Worker address = %d', ws.address)
+                logger.info('Decided worker at the first stage. Worker address = %s', ws.address)
                 break
             else:
                 # remove current id info in cnt_cached_packages
