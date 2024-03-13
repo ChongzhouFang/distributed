@@ -1853,6 +1853,7 @@ class SchedulerState:
         self.cached_packages = {
             ws.address: [] for ws in self.workers.values()
         }
+        logger.info(str(self.cached_packages.keys()))
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
