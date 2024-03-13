@@ -155,8 +155,8 @@ if TYPE_CHECKING:
 # return the number of already cached packages
 # @param requiredPackage: packages an application requires
 # @param cachedPackage: packages already cached at server
-def cntCachedPackage(requiredPackage: set[str],
-                     cachedPackage:set[str]):
+def cntCachedPackage(requiredPackage: list[str],
+                     cachedPackage: list[str]):
     cnt = 0
     for p in requiredPackage:
         if p in cachedPackage:
@@ -534,7 +534,6 @@ class WorkerState:
     """"""""""""""""""""""""""""""""""""""""""
     # Store the currently running function hosts
     running_hosts: set[str]
-    cached_packages: set[str]
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
     """"""""""""""""""""""""""""""""""""""""""
@@ -597,15 +596,6 @@ class WorkerState:
         self.needs_what = {}
         self._network_occ = 0
         self._occupancy_cache = None
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""
-        # Store the currently running function hosts
-        self.cached_packages = list[str]
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
-
 
     def __hash__(self) -> int:
         return self._hash
@@ -1419,7 +1409,7 @@ class TaskState:
     "             Changes start.             "
     """"""""""""""""""""""""""""""""""""""""""
     # A string of hash for scheduling purposes. 
-    requiredPackages: set[str]
+    requiredPackages: list[str]
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
     """"""""""""""""""""""""""""""""""""""""""
@@ -1718,6 +1708,17 @@ class SchedulerState:
     #: Total number of transitions as of the previous call to check_idle()
     _idle_transition_counter: int
 
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes start.             "
+    """"""""""""""""""""""""""""""""""""""""""
+    # store cached pacakges of each machine
+    # key value: worker address
+    cached_packages = dict[str, list[str]]
+
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes end.               "
+    """"""""""""""""""""""""""""""""""""""""""
+
     #: Raise an error if the :attr:`transition_counter` ever reaches this value.
     #: This is meant for debugging only, to catch infinite recursion loops.
     #: In production, it should always be set to False.
@@ -1743,6 +1744,7 @@ class SchedulerState:
     MEMORY_REBALANCE_HALF_GAP: float
     #: distributed.scheduler.worker-saturation
     WORKER_SATURATION: float
+
 
     __slots__ = tuple(__annotations__)
 
@@ -1843,6 +1845,17 @@ class SchedulerState:
                 "`distributed.scheduler.worker-saturation` must be a float > 0; got "
                 + repr(self.WORKER_SATURATION)
             )
+
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        # init cached_packages
+        self.cached_packages = {
+            ws.address: [] for ws in self.workers.values()
+        }
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
 
     @property
     def memory(self) -> MemoryState:
@@ -2186,6 +2199,19 @@ class SchedulerState:
 
         return {}, {}, {}
 
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes start.             "
+    """"""""""""""""""""""""""""""""""""""""""
+    # update cached packages
+    def updateCachedPackages(self, ws_address: str, packages: list[str]):
+        for p in packages:
+            if p not in self.cached_packages[ws_address]:
+                self.cached_packages[ws_address].append(p)
+
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes end.               "
+    """"""""""""""""""""""""""""""""""""""""""
+
     def decide_worker_rootish_queuing_disabled(
         self, ts: TaskState
     ) -> WorkerState | None:
@@ -2293,6 +2319,9 @@ class SchedulerState:
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
         logger.info("Worker selected. Worker id: %s", ws.address)
+
+        # Update packages
+        self.updateCachedPackages(ws.address, ts.requiredPackages)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2399,6 +2428,9 @@ class SchedulerState:
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
         logger.info("Worker selected. Worker id: %s", ws.address)
+
+        # Update packages
+        self.updateCachedPackages(ws.address, ts.requiredPackages)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2517,6 +2549,9 @@ class SchedulerState:
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
         logger.info("Worker selected. Worker id: %s", ws.address)
+
+        # Update packages
+        self.updateCachedPackages(ws.address, ts.requiredPackages)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
