@@ -22,6 +22,7 @@ import weakref
 "             Changes start.             "
 """"""""""""""""""""""""""""""""""""""""""
 from dask.utils import funcname
+import re
 """"""""""""""""""""""""""""""""""""""""""
 "             Changes end.               "
 """"""""""""""""""""""""""""""""""""""""""
@@ -1579,7 +1580,8 @@ class TaskState:
         from . import required_packages
         function, args, kwargs = self.run_spec
         logger.info('Function name is %s', str(funcname(function))[:1000])
-        return required_packages.required_packages[str(funcname(function))[:1000]]
+        key = re.split('_', str(funcname(function))[:1000])[0]
+        return required_packages.required_packages[key]
     
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
