@@ -162,7 +162,7 @@ class HashRing:
     def __init__(self, u_virtualNode):
         self.virtualNode = u_virtualNode
         self.hashRing = {}
-        
+
     def addNode(self, nodeName: str):
         for i in range(self.virtualNode):
             self.hashRing[hash(nodeName + '-' + str(i))] = nodeName
@@ -175,6 +175,8 @@ class HashRing:
     def getNode(self, keyName: str) -> str:
         keyHash = hash(keyName)
         sortedKeys = sorted(self.hashRing.keys())
+        ## Debuggign
+        logger.info("Sorted Keys is " + str(sortedKeys))
         if keyHash >= sortedKeys[-1]:   # last element
             return self.hashRing[sortedKeys[-1]]
         else:
