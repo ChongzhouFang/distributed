@@ -5291,7 +5291,7 @@ class Scheduler(SchedulerState, ServerNode):
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes start.             "
         """"""""""""""""""""""""""""""""""""""""""
-        del self.node_ring.removeNode(ws.address)
+        self.node_ring.removeNode(ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
