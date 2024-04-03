@@ -176,8 +176,13 @@ class HashRing:
         keyHash = hash(keyName)
         sortedKeys = sorted(self.hashRing.keys())
         ## Debugging
+        # display hashring
+        displayMsg = ''
+        for k in sortedKeys:
+            displayMsg += str(k) + ": " + self.hashRing[k] + '\n'
+        logger.info("HashRing is:\n" + displayMsg)
         logger.info("Hash of " + keyName + " is " + str(keyHash))
-        if keyHash >= sortedKeys[-1]:   # last element
+        if keyHash >= sortedKeys[-1] or keyHash < sortedKeys[0]:   # last element
             return self.hashRing[sortedKeys[-1]]
         else:
         # binary search for the lower and closest key
@@ -2281,8 +2286,6 @@ class SchedulerState:
         # get node from the hash ring
         pkg = ts.requiredPackages[0]
         nodeAddress = self.node_ring.getNode(pkg)
-        ## Debugging info
-        logger.info(str(self.node_ring.hashRing))
 
         if (pool[nodeAddress].status ==  Status.running and nodeAddress in self.idle.keys()):
             ws = pool[nodeAddress]
