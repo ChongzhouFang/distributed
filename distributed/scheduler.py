@@ -177,11 +177,11 @@ class HashRing:
         sortedKeys = sorted(self.hashRing.keys())
         ## Debugging
         # display hashring
-        displayMsg = ''
-        for k in sortedKeys:
-            displayMsg += str(k) + ": " + self.hashRing[k] + '\n'
-        logger.info("HashRing is:\n" + displayMsg)
-        logger.info("Hash of " + keyName + " is " + str(keyHash))
+        # displayMsg = ''
+        # for k in sortedKeys:
+        #     displayMsg += str(k) + ": " + self.hashRing[k] + '\n'
+        # logger.info("HashRing is:\n" + displayMsg)
+        # logger.info("Hash of " + keyName + " is " + str(keyHash))
         if keyHash >= sortedKeys[-1] or keyHash < sortedKeys[0]:   # last element
             return self.hashRing[sortedKeys[-1]]
         else:
@@ -1605,7 +1605,7 @@ class TaskState:
     def extractRequiredPackage(self):
         from . import required_packages
         function, args, kwargs = self.run_spec
-        logger.info('Function name is %s', str(funcname(function))[:1000])
+        # logger.info('Function name is %s', str(funcname(function))[:1000])
         key = re.split('_', str(funcname(function))[:1000])[0]
         return required_packages.required_packages[key]
     
@@ -2391,8 +2391,6 @@ class SchedulerState:
         # get node from the hash ring
         pkg = ts.requiredPackages[0]
         nodeAddress = self.node_ring.getNode(pkg)
-        ## Debugging info
-        logger.info(str(self.node_ring.hashRing))
         
         if (pool[nodeAddress].status ==  Status.running and nodeAddress in self.idle.keys()):
             ws = pool[nodeAddress]
@@ -2464,8 +2462,6 @@ class SchedulerState:
         # get node from the hash ring
         pkg = ts.requiredPackages[0]
         nodeAddress = self.node_ring.getNode(pkg)
-        ## Debugging info
-        logger.info(str(self.node_ring.hashRing))
         
         if (pool[nodeAddress].status ==  Status.running and nodeAddress in self.idle.keys()):
             ws = pool[nodeAddress]
