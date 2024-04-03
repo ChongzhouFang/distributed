@@ -1831,7 +1831,7 @@ class SchedulerState:
         """"""""""""""""""""""""""""""""""""""""""
         # init hash ring
         self.node_ring = HashRing(5)
-        for worker_name in self.workers.keys():
+        for worker_name in workers.keys():
             self.node_ring.addNode(worker_name)
         
         logger.info(str(self.node_ring.hashRing))
@@ -4518,6 +4518,7 @@ class Scheduler(SchedulerState, ServerNode):
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes start.             "
         """"""""""""""""""""""""""""""""""""""""""
+        self.node_ring.addNode(ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
