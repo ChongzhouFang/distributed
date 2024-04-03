@@ -2281,7 +2281,9 @@ class SchedulerState:
         # get node from the hash ring
         pkg = ts.requiredPackages[0]
         nodeAddress = self.node_ring.getNode(pkg)
+        ## Debugging info
         logger.info(str(self.node_ring.hashRing))
+
         if (pool[nodeAddress].status ==  Status.running and nodeAddress in self.idle.keys()):
             ws = pool[nodeAddress]
         else: # need to randomly choose one
@@ -2386,7 +2388,9 @@ class SchedulerState:
         # get node from the hash ring
         pkg = ts.requiredPackages[0]
         nodeAddress = self.node_ring.getNode(pkg)
-
+        ## Debugging info
+        logger.info(str(self.node_ring.hashRing))
+        
         if (pool[nodeAddress].status ==  Status.running and nodeAddress in self.idle.keys()):
             ws = pool[nodeAddress]
         else: # need to randomly choose one
@@ -2457,6 +2461,8 @@ class SchedulerState:
         # get node from the hash ring
         pkg = ts.requiredPackages[0]
         nodeAddress = self.node_ring.getNode(pkg)
+        ## Debugging info
+        logger.info(str(self.node_ring.hashRing))
         
         if (pool[nodeAddress].status ==  Status.running and nodeAddress in self.idle.keys()):
             ws = pool[nodeAddress]
