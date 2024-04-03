@@ -161,7 +161,8 @@ class HashRing:
     virtualNode: int
     def __init__(self, u_virtualNode):
         self.virtualNode = u_virtualNode
-    
+        self.hashRing = {}
+        
     def addNode(self, nodeName: str):
         for i in range(self.virtualNode):
             self.hashRing[hash(nodeName + '-' + str(i))] = nodeName
