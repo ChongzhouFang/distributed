@@ -175,8 +175,8 @@ class HashRing:
     def getNode(self, keyName: str) -> str:
         keyHash = hash(keyName)
         sortedKeys = sorted(self.hashRing.keys())
-        ## Debuggign
-        logger.info("Sorted Keys is " + str(sortedKeys))
+        ## Debugging
+        logger.info("Hash of " + keyName + " is " + str(keyHash))
         if keyHash >= sortedKeys[-1]:   # last element
             return self.hashRing[sortedKeys[-1]]
         else:
@@ -1834,7 +1834,6 @@ class SchedulerState:
         for worker_name in workers.keys():
             self.node_ring.addNode(worker_name)
         
-        logger.info(str(self.node_ring.hashRing))
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2282,7 +2281,7 @@ class SchedulerState:
         # get node from the hash ring
         pkg = ts.requiredPackages[0]
         nodeAddress = self.node_ring.getNode(pkg)
-
+        logger.info(str(self.node_ring.hashRing))
         if (pool[nodeAddress].status ==  Status.running and nodeAddress in self.idle.keys()):
             ws = pool[nodeAddress]
         else: # need to randomly choose one
