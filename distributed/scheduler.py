@@ -2297,7 +2297,9 @@ class SchedulerState:
         pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
-        ws = list(pool)[random.randint(0, len(pool) - 1)]
+
+        selected_index = random.randint(0, len(pool) - 1)
+        ws = list(pool)[selected_index]
         ### Start of the original code from dask.distributed
         # valid_workers = self.valid_workers(ts)
         # if valid_workers is None and len(self.running) < len(self.workers):
@@ -2352,7 +2354,8 @@ class SchedulerState:
         "             Changes start.             "
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
-        logger.info("Worker selected. Worker id: %s", ws.address)
+        logger.info("Worker selected. Worker addr: %s", ws.address)
+        logger.info("Worker index: %d", selected_index)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
