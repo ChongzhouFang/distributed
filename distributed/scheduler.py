@@ -1605,7 +1605,7 @@ class TaskState:
     def extractRequiredPackage(self):
         from . import required_packages
         function, args, kwargs = self.run_spec
-        # logger.info('Function name is %s', str(funcname(function))[:1000])
+        logger.info('Function args are %s', str(args))
         key = re.split('_', str(funcname(function))[:1000])[0]
         return required_packages.required_packages[key]
     
