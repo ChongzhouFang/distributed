@@ -21,6 +21,7 @@ import weakref
 """"""""""""""""""""""""""""""""""""""""""
 "             Changes start.             "
 """"""""""""""""""""""""""""""""""""""""""
+from dask.utils import funcname
 import re
 """"""""""""""""""""""""""""""""""""""""""
 "             Changes end.               "
@@ -2294,6 +2295,8 @@ class SchedulerState:
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes start.             "
         """"""""""""""""""""""""""""""""""""""""""
+        function, args, kwargs = ts.run_spec
+        logger.info('Operation: %s', str(funcname(function)))
         pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
@@ -2354,8 +2357,7 @@ class SchedulerState:
         "             Changes start.             "
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
-        logger.info("Worker selected. Worker addr: %s", ws.address)
-        logger.info("Worker index: %d", selected_index)
+        logger.info("Worker selected. Worker id: %s", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
