@@ -2300,7 +2300,8 @@ class SchedulerState:
         pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
-
+        num_invokers = len(pool)
+        logger.info("num_invokers = %s", str(num_invokers))
         selected_index = random.randint(0, len(pool) - 1)
         ws = list(pool)[selected_index]
         ### Start of the original code from dask.distributed
