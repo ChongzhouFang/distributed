@@ -2263,6 +2263,10 @@ class Worker(BaseWorker, ServerNode):
             if idle_time > 600:
                 logger.info("Host %s has been idle for 3 minutes. Terminating...", name)
                 function_handler.cancel()
+                try:
+                    await function_handler
+                except asyncio.CancelledError:
+                    pass
                 break
             else:
                 logger.info("Host %s has been idle for %s seconds...", name, str(idle_time))
@@ -2479,6 +2483,10 @@ class Worker(BaseWorker, ServerNode):
                     
 
                     idle_check_handler.cancel()
+                    try:
+                        await idle_check_handler
+                    except asyncio.CancelledError:
+                        pass
                     # await asyncio.sleep(120)
                     # logger.info("Time's up, close host.")
                     # function_host_handler.cancel()
