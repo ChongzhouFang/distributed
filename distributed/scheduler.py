@@ -2295,7 +2295,7 @@ class SchedulerState:
 
     def decide_worker_rootish_queuing_enabled(self, 
                                               # Changes start.
-                                              ts: TaskState
+                                              ts: TaskState=None
                                               # Changes end.
                                               ) -> WorkerState | None:
         """Pick a worker for a runnable root-ish task, if not all are busy.
