@@ -2403,6 +2403,7 @@ class SchedulerState:
         "             Changes start.             "
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
+        logger.info("inv_freq: %s", str(self.inv_freq))
         logger.info("Worker selected. Worker id: %s", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
