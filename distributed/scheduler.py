@@ -22,6 +22,7 @@ import weakref
 "             Changes start.             "
 """"""""""""""""""""""""""""""""""""""""""
 import re
+from dask.utils import funcname
 """"""""""""""""""""""""""""""""""""""""""
 "             Changes end.               "
 """"""""""""""""""""""""""""""""""""""""""
@@ -147,35 +148,6 @@ if TYPE_CHECKING:
 
     from dask.highlevelgraph import HighLevelGraph
 
-
-""""""""""""""""""""""""""""""""""""""""""
-"             Changes start.             "
-""""""""""""""""""""""""""""""""""""""""""
-# define utility functions
-
-# Euclidean algorithm to determine the greatest-common-divisor
-def gcd(a: int, b: int) -> int:
-    if (b == 0):
-        return a
-    else:
-        return gcd(b, a % b)
-def pairwiseCoprimeNumberUtil(x: int) -> set[int]:
-    primes = set()
-    for i in range(1, x):
-        ifAdd = True # flag to determine if current element should be added to primes
-        if gcd(i, x) == 1:
-            for j in primes:
-                if gcd(j, i) != 1:
-                    ifAdd = False
-                    break
-        else: 
-            ifAdd = False
-        if ifAdd:
-            primes.add(i)
-    return primes
-""""""""""""""""""""""""""""""""""""""""""
-"             Changes end.               "
-""""""""""""""""""""""""""""""""""""""""""
 
 
 # Not to be confused with distributed.worker_state_machine.TaskStateState
@@ -543,6 +515,10 @@ class WorkerState:
     """"""""""""""""""""""""""""""""""""""""""
     # Store the currently running function hosts
     running_hosts: set[str]
+
+    # Store an invocation frequency for load balancing
+    # Format: {<operation name>:{<node addr>:<#. of times being invocated with a time t>}}
+    inv_freq: dict[str, dict[str, int]]
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
     """"""""""""""""""""""""""""""""""""""""""
@@ -605,6 +581,13 @@ class WorkerState:
         self.needs_what = {}
         self._network_occ = 0
         self._occupancy_cache = None
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        self.inv_freq = {}
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
 
     def __hash__(self) -> int:
         return self._hash
@@ -880,7 +863,46 @@ class WorkerState:
         return self._occupancy_cache or self.scheduler._calc_occupancy(
             self.task_prefix_count, self._network_occ
         )
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes start.             "
+    """"""""""""""""""""""""""""""""""""""""""
+    def maintain_inv_freq(self, function_name: str, worker_addr: str) -> bool:
+        
+        # 1. If function name not in inv_freq, add a new entry
 
+        if function_name not in self.inv_freq.keys():
+            self.inv_freq[function_name] = {worker_addr: 1}
+
+        # 2. If node address is not in inv_freq[function], add a new entry for node address and decrement all counters
+
+        elif worker_addr not in self.inv_freq[function_name]:
+            self.inv_freq[function_name][worker_addr] = 2 # set to 2 so after decrement it will be 1
+            for wa in self.inv_freq[function_name].keys():
+                self.inv_freq[function_name][wa] -= 1
+                if self.inv_freq[function_name][wa] < 0: # cap at 0
+                    self.inv_freq[function_name][wa] = 0
+
+        # 3. If worker_addr is in inv_freq[function]
+        
+        else:
+            # change the value HERE if invocation threshold should change
+            if self.inv_freq[function_name][worker_addr] + 1 >= 5:
+                # This invocation will cause the threshold to be reached, hence do nothing and return false
+                return False
+            
+            else:
+                for wa in self.inv_freq[function_name].keys():
+                    if wa == worker_addr:
+                        self.inv_freq[function_name][wa] += 1
+                    else:
+                        self.inv_freq[function_name][wa] -= 1
+                        if self.inv_freq[function_name][wa] < 0: # cap at 0
+                            self.inv_freq[function_name][wa] = 0
+            
+        return True
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes end.               "
+    """"""""""""""""""""""""""""""""""""""""""
 
 @dataclasses.dataclass
 class ErredTask:
@@ -1414,15 +1436,6 @@ class TaskState:
     #: be rejected.
     run_id: int | None
 
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes start.             "
-    """"""""""""""""""""""""""""""""""""""""""
-    # A string of hash for scheduling purposes. 
-    schedule_hash: str
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes end.               "
-    """"""""""""""""""""""""""""""""""""""""""
-
     #: Cached hash of :attr:`~TaskState.client_key`
     _hash: int
 
@@ -1479,13 +1492,6 @@ class TaskState:
         self.annotations = {}
         self.erred_on = set()
         self.run_id = None
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""
-        self.schedule_hash = None
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
         TaskState._instances.add(self)
 
     def __hash__(self) -> int:
@@ -1580,27 +1586,6 @@ class TaskState:
         chain of ~200+ tasks.
         """
         return recursive_to_dict(self, exclude=exclude, members=True)
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes start.             "
-    """"""""""""""""""""""""""""""""""""""""""
-    # generates schedule_hash
-    def generate_schedule_hash(self):
-        randomization = True
-        # client_id = list(self.who_wants)[0].client_key
-        operation = re.split('-', self.key)[0]
-        logger.info('Operation: %s', operation)
-        # self.schedule_hash = abs(hash(client_id) ^ hash(operation))
-        if randomization:
-            self.schedule_hash = hash(operation)
-        else:
-            import hashlib
-            m = hashlib.sha1()
-            m.update(operation.encode())
-            self.schedule_hash = int(m.hexdigest(), 16)
-        logger.info('Schedule Hash: %s', self.schedule_hash)
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes end.               "
-    """"""""""""""""""""""""""""""""""""""""""
 
 class Transition(NamedTuple):
     """An entry in :attr:`SchedulerState.transition_log`"""
@@ -1889,14 +1874,6 @@ class SchedulerState:
         """Create a new task, and associated states"""
         ts = TaskState(key, spec, state)
 
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""
-        # generate hash value for later usage
-        ts.generate_schedule_hash()
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
 
         prefix_key = key_split(key)
         tp = self.task_prefixes.get(prefix_key)
@@ -2222,11 +2199,7 @@ class SchedulerState:
             assert math.isinf(self.WORKER_SATURATION)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""        
-        # pool = self.idle.values() if self.idle else self.running
-        # if not pool:
-        #     return None
-
+        """"""""""""""""""""""""""""""""""""""""""
         pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
@@ -2236,32 +2209,41 @@ class SchedulerState:
         # determine the home invoker id
         num_invokers = len(pool)
         logger.info("num_invokers = %s", str(num_invokers))
-        home_invoker_id = ts.schedule_hash % num_invokers
+        
+        
+        function, args, kwargs = ts.run_spec
+        function_name = str(funcname(function))[:1000]
+        logger.info('Operation: %s', function_name)
 
-        # determine steps
-        steps = pairwiseCoprimeNumberUtil(num_invokers)
+        # 1. this app not scheduled yet
 
-        # determine which step to use
-        step = list(steps)[ts.schedule_hash % len(steps)]
+        if function_name not in self.inv_freq.keys():
+            selected_index = random.randint(0, len(pool) - 1)
+            ws = list(pool)[selected_index]
+            _ = self.maintain_inv_freq(function_name, ws.address)
+        
+        # 2. this app has been scheduled, randomly select one to avoid cold start
+        
+        else:
+            # randomly pick a warm start location
+            selected_worker_addr = random.choice(list(self.inv_freq[function_name]))
 
-        invoker_id = home_invoker_id
-        while True:
-            if (
-                list(pool)[invoker_id].status ==  Status.running
-                and list(pool)[invoker_id].address in self.idle.keys()
-            ):
-                ws = list(pool)[invoker_id]
-                break
-            else:
-                invoker_id = (invoker_id + step) % num_invokers
-                if invoker_id == home_invoker_id:
-                    # Already gone through all potential invokers, now randomly select one healthy idle server
-                    import random
-                    idle_pool = self.idle.values()
-                    if not idle_pool:
-                        return None
-                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
-                    break
+            # does not cause the invocation to become a high-freq invocation
+            if self.maintain_inv_freq(function_name, selected_worker_addr):
+                
+                # find the worker
+                for i in range(len(pool)):
+                    if list(pool)[i].address == selected_worker_addr:
+                        ws = list(pool)[i]
+                        break
+            # need a helper
+            else:   
+                selected_index = random.randint(0, len(pool) - 1)
+                while list(pool)[selected_index].address in self.inv_freq[function_name].keys():
+                    selected_index = random.randint(0, len(pool) - 1)
+                
+                ws = list(pool)[selected_index]
+                _ = self.maintain_inv_freq(function_name, ws.address)
 
         ### Start of the original code from dask.distributed
         # tg = ts.group
@@ -2357,33 +2339,41 @@ class SchedulerState:
         # determine the home invoker id
         num_invokers = len(pool)
         logger.info("num_invokers = %s", str(num_invokers))
-        home_invoker_id = ts.schedule_hash % num_invokers
+        
+        
+        function, args, kwargs = ts.run_spec
+        function_name = str(funcname(function))[:1000]
+        logger.info('Operation: %s', function_name)
 
-        # determine steps
-        steps = pairwiseCoprimeNumberUtil(num_invokers)
+        # 1. this app not scheduled yet
 
-        # determine which step to use
-        step = list(steps)[ts.schedule_hash % len(steps)]
+        if function_name not in self.inv_freq.keys():
+            selected_index = random.randint(0, len(pool) - 1)
+            ws = list(pool)[selected_index]
+            _ = self.maintain_inv_freq(function_name, ws.address)
+        
+        # 2. this app has been scheduled, randomly select one to avoid cold start
+        
+        else:
+            # randomly pick a warm start location
+            selected_worker_addr = random.choice(list(self.inv_freq[function_name]))
 
-        invoker_id = home_invoker_id
-        while True:
-            if (
-                list(pool)[invoker_id].status ==  Status.running
-                and list(pool)[invoker_id].address in self.idle.keys()
-            ):
-                ws = list(pool)[invoker_id]
-                break
-            else:
-                invoker_id = (invoker_id + step) % num_invokers
-                if invoker_id == home_invoker_id:
-                    # Already gone through all potential invokers, now randomly select one healthy idle server
-                    import random
-                    idle_pool = self.idle.values()
-                    if not idle_pool:
-                        # Queued
-                        return None
-                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
-                    break
+            # does not cause the invocation to become a high-freq invocation
+            if self.maintain_inv_freq(function_name, selected_worker_addr):
+                
+                # find the worker
+                for i in range(len(pool)):
+                    if list(pool)[i].address == selected_worker_addr:
+                        ws = list(pool)[i]
+                        break
+            # need a helper
+            else:   
+                selected_index = random.randint(0, len(pool) - 1)
+                while list(pool)[selected_index].address in self.inv_freq[function_name].keys():
+                    selected_index = random.randint(0, len(pool) - 1)
+                
+                ws = list(pool)[selected_index]
+                _ = self.maintain_inv_freq(function_name, ws.address)
         ### Start of the original code from dask.distributed
         # Just pick the least busy worker.
         # NOTE: this will lead to worst-case scheduling with regards to co-assignment.
@@ -2442,43 +2432,43 @@ class SchedulerState:
         # determine the home invoker id
         num_invokers = len(pool)
         logger.info("num_invokers = %s", str(num_invokers))
-        home_invoker_id = ts.schedule_hash % num_invokers
+        
+        
+        function, args, kwargs = ts.run_spec
+        function_name = str(funcname(function))[:1000]
+        logger.info('Operation: %s', function_name)
 
-        # determine steps
-        steps = pairwiseCoprimeNumberUtil(num_invokers)
+        # 1. this app not scheduled yet
 
-        # determine which step to use
-        step = list(steps)[ts.schedule_hash % len(steps)]
+        if function_name not in self.inv_freq.keys():
+            selected_index = random.randint(0, len(pool) - 1)
+            ws = list(pool)[selected_index]
+            _ = self.maintain_inv_freq(function_name, ws.address)
+        
+        # 2. this app has been scheduled, randomly select one to avoid cold start
+        
+        else:
+            # randomly pick a warm start location
+            selected_worker_addr = random.choice(list(self.inv_freq[function_name]))
 
-        invoker_id = home_invoker_id
+            # does not cause the invocation to become a high-freq invocation
+            if self.maintain_inv_freq(function_name, selected_worker_addr):
+                
+                # find the worker
+                for i in range(len(pool)):
+                    if list(pool)[i].address == selected_worker_addr:
+                        ws = list(pool)[i]
+                        break
+            # need a helper
+            else:   
+                selected_index = random.randint(0, len(pool) - 1)
+                while list(pool)[selected_index].address in self.inv_freq[function_name].keys():
+                    selected_index = random.randint(0, len(pool) - 1)
+                
+                ws = list(pool)[selected_index]
+                _ = self.maintain_inv_freq(function_name, ws.address)
 
-        # debugging info
-        logger.info('Home invoker index = %d', invoker_id)
-
-        while True:
-            if (
-                list(pool)[invoker_id].status ==  Status.running
-                and list(pool)[invoker_id].address in self.idle.keys()
-            ):
-                ws = list(pool)[invoker_id]
-                # debugging info
-                logger.info('Decided worker at the first stage. Worker index = %d', invoker_id)
-                break
-            else:
-                invoker_id = (invoker_id + step) % num_invokers
-                # debugging info
-                logger.info('Changing invoker index. Invoker index = %d', invoker_id)
-                if invoker_id == home_invoker_id:
-                    # Already gone through all potential invokers, now randomly select one healthy idle server
-                    import random
-                    idle_pool = self.idle.values()
-                    if not idle_pool:
-                        # Queued
-                        return None
-                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
-                    # debugging info
-                    logger.info('Decided worker at the second stage. Worker index = %d', invoker_id)
-                    break
+        
         ### Start of the original code from dask.distributed
         # valid_workers = self.valid_workers(ts)
         # if valid_workers is None and len(self.running) < len(self.workers):
