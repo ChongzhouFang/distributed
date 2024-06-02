@@ -1842,10 +1842,11 @@ class SchedulerState:
 
         elif worker_addr not in self.inv_freq[function_name]:
             self.inv_freq[function_name][worker_addr] = 2 # set to 2 so after decrement it will be 1
-            for wa in self.inv_freq[function_name].keys():
-                self.inv_freq[function_name][wa] -= 1
-                if self.inv_freq[function_name][wa] < 0: # cap at 0
-                    self.inv_freq[function_name][wa] = 0
+            for f in self.inv_freq.keys():
+                for wa in self.inv_freq[f].keys():
+                    self.inv_freq[f][wa] -= 1
+                    if self.inv_freq[f][wa] < 0: # cap at 0
+                        self.inv_freq[f][wa] = 0
 
         # 3. If worker_addr is in inv_freq[function]
         
@@ -1856,13 +1857,14 @@ class SchedulerState:
                 return False
             
             else:
-                for wa in self.inv_freq[function_name].keys():
-                    if wa == worker_addr:
-                        self.inv_freq[function_name][wa] += 1
-                    else:
-                        self.inv_freq[function_name][wa] -= 1
-                        if self.inv_freq[function_name][wa] < 0: # cap at 0
-                            self.inv_freq[function_name][wa] = 0
+                for f in self.inv_freq.keys():
+                    for wa in self.inv_freq[function_name].keys():
+                        if f == function_name and wa == worker_addr:
+                            self.inv_freq[f][wa] += 1   # selected invocation
+                        else:
+                            self.inv_freq[f][wa] -= 1
+                            if self.inv_freq[f][wa] < 0: # cap at 0
+                                self.inv_freq[f][wa] = 0
             
         return True
     """"""""""""""""""""""""""""""""""""""""""
