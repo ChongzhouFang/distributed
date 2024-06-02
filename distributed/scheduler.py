@@ -516,9 +516,6 @@ class WorkerState:
     # Store the currently running function hosts
     running_hosts: set[str]
 
-    # Store an invocation frequency for load balancing
-    # Format: {<operation name>:{<node addr>:<#. of times being invocated with a time t>}}
-    inv_freq: dict[str, dict[str, int]]
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
     """"""""""""""""""""""""""""""""""""""""""
@@ -581,13 +578,6 @@ class WorkerState:
         self.needs_what = {}
         self._network_occ = 0
         self._occupancy_cache = None
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""
-        self.inv_freq = {}
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
 
     def __hash__(self) -> int:
         return self._hash
@@ -863,46 +853,6 @@ class WorkerState:
         return self._occupancy_cache or self.scheduler._calc_occupancy(
             self.task_prefix_count, self._network_occ
         )
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes start.             "
-    """"""""""""""""""""""""""""""""""""""""""
-    def maintain_inv_freq(self, function_name: str, worker_addr: str) -> bool:
-        
-        # 1. If function name not in inv_freq, add a new entry
-
-        if function_name not in self.inv_freq.keys():
-            self.inv_freq[function_name] = {worker_addr: 1}
-
-        # 2. If node address is not in inv_freq[function], add a new entry for node address and decrement all counters
-
-        elif worker_addr not in self.inv_freq[function_name]:
-            self.inv_freq[function_name][worker_addr] = 2 # set to 2 so after decrement it will be 1
-            for wa in self.inv_freq[function_name].keys():
-                self.inv_freq[function_name][wa] -= 1
-                if self.inv_freq[function_name][wa] < 0: # cap at 0
-                    self.inv_freq[function_name][wa] = 0
-
-        # 3. If worker_addr is in inv_freq[function]
-        
-        else:
-            # change the value HERE if invocation threshold should change
-            if self.inv_freq[function_name][worker_addr] + 1 >= 5:
-                # This invocation will cause the threshold to be reached, hence do nothing and return false
-                return False
-            
-            else:
-                for wa in self.inv_freq[function_name].keys():
-                    if wa == worker_addr:
-                        self.inv_freq[function_name][wa] += 1
-                    else:
-                        self.inv_freq[function_name][wa] -= 1
-                        if self.inv_freq[function_name][wa] < 0: # cap at 0
-                            self.inv_freq[function_name][wa] = 0
-            
-        return True
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes end.               "
-    """"""""""""""""""""""""""""""""""""""""""
 
 @dataclasses.dataclass
 class ErredTask:
@@ -1735,6 +1685,15 @@ class SchedulerState:
     MEMORY_REBALANCE_HALF_GAP: float
     #: distributed.scheduler.worker-saturation
     WORKER_SATURATION: float
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes start.             "
+    """"""""""""""""""""""""""""""""""""""""""
+    # Store an invocation frequency for load balancing
+    # Format: {<operation name>:{<node addr>:<#. of times being invocated with a time t>}}
+    inv_freq: dict[str, dict[str, int]]
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes end.               "
+    """"""""""""""""""""""""""""""""""""""""""
 
     __slots__ = tuple(__annotations__)
 
@@ -1835,7 +1794,13 @@ class SchedulerState:
                 "`distributed.scheduler.worker-saturation` must be a float > 0; got "
                 + repr(self.WORKER_SATURATION)
             )
-
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        self.inv_freq = {}
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
     @property
     def memory(self) -> MemoryState:
         return MemoryState.sum(*(w.memory for w in self.workers.values()))
@@ -1863,7 +1828,46 @@ class SchedulerState:
             "idle": self.idle,
             "host_info": self.host_info,
         }
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes start.             "
+    """"""""""""""""""""""""""""""""""""""""""
+    def maintain_inv_freq(self, function_name: str, worker_addr: str) -> bool:
+        
+        # 1. If function name not in inv_freq, add a new entry
 
+        if function_name not in self.inv_freq.keys():
+            self.inv_freq[function_name] = {worker_addr: 1}
+
+        # 2. If node address is not in inv_freq[function], add a new entry for node address and decrement all counters
+
+        elif worker_addr not in self.inv_freq[function_name]:
+            self.inv_freq[function_name][worker_addr] = 2 # set to 2 so after decrement it will be 1
+            for wa in self.inv_freq[function_name].keys():
+                self.inv_freq[function_name][wa] -= 1
+                if self.inv_freq[function_name][wa] < 0: # cap at 0
+                    self.inv_freq[function_name][wa] = 0
+
+        # 3. If worker_addr is in inv_freq[function]
+        
+        else:
+            # change the value HERE if invocation threshold should change
+            if self.inv_freq[function_name][worker_addr] + 1 >= 5:
+                # This invocation will cause the threshold to be reached, hence do nothing and return false
+                return False
+            
+            else:
+                for wa in self.inv_freq[function_name].keys():
+                    if wa == worker_addr:
+                        self.inv_freq[function_name][wa] += 1
+                    else:
+                        self.inv_freq[function_name][wa] -= 1
+                        if self.inv_freq[function_name][wa] < 0: # cap at 0
+                            self.inv_freq[function_name][wa] = 0
+            
+        return True
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes end.               "
+    """"""""""""""""""""""""""""""""""""""""""
     def new_task(
         self,
         key: str,
