@@ -1852,7 +1852,7 @@ class SchedulerState:
         
         else:
             # change the value HERE if invocation threshold should change
-            if self.inv_freq[function_name][worker_addr] + 1 >= 5:
+            if self.inv_freq[function_name][worker_addr] + 1 > 2:
                 # This invocation will cause the threshold to be reached, hence do nothing and return false
                 return False
             
