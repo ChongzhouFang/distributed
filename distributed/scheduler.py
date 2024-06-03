@@ -1858,7 +1858,7 @@ class SchedulerState:
             
             else:
                 for f in self.inv_freq.keys():
-                    for wa in self.inv_freq[function_name].keys():
+                    for wa in self.inv_freq[f].keys():
                         if f == function_name and wa == worker_addr:
                             self.inv_freq[f][wa] += 1   # selected invocation
                         else:
