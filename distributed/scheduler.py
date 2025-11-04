@@ -149,25 +149,6 @@ if TYPE_CHECKING:
     from dask.highlevelgraph import HighLevelGraph
 
 
-""""""""""""""""""""""""""""""""""""""""""
-"             Changes start.             "
-""""""""""""""""""""""""""""""""""""""""""
-# define utility functions
-# return the number of already cached packages
-# @param requiredPackage: packages an application requires
-# @param cachedPackage: packages already cached at server
-def cntCachedPackage(requiredPackage: list[str],
-                     cachedPackage: list[str]):
-    cnt = 0
-    for p in requiredPackage:
-        if p in cachedPackage:
-            cnt += 1
-    
-    return cnt
-
-""""""""""""""""""""""""""""""""""""""""""
-"             Changes end.               "
-""""""""""""""""""""""""""""""""""""""""""
 
 
 # Not to be confused with distributed.worker_state_machine.TaskStateState
@@ -529,15 +510,6 @@ class WorkerState:
     task_prefix_count: defaultdict[str, int]
     _network_occ: float
     _occupancy_cache: float | None
-
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes start.             "
-    """"""""""""""""""""""""""""""""""""""""""
-    # Store the currently running function hosts
-    running_hosts: set[str]
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes end.               "
-    """"""""""""""""""""""""""""""""""""""""""
 
     #: Keys that may need to be fetched to this worker, and the number of tasks that need them.
     #: All tasks are currently in `memory` on a worker other than this one.
@@ -1409,8 +1381,8 @@ class TaskState:
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes start.             "
     """"""""""""""""""""""""""""""""""""""""""
-    # A string of hash for scheduling purposes. 
-    requiredPackages: list[str]
+    # Maintain user ID who submitted the task
+    userId: str
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
     """"""""""""""""""""""""""""""""""""""""""
@@ -1474,7 +1446,8 @@ class TaskState:
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes start.             "
         """"""""""""""""""""""""""""""""""""""""""
-        self.requiredPackages = self.extractRequiredPackage()
+        # set user ID who submitted the task
+        self.userId = self.extractUserId()
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -1575,13 +1548,15 @@ class TaskState:
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes start.             "
     """"""""""""""""""""""""""""""""""""""""""
-    # extract required packages
-    def extractRequiredPackage(self):
-        from . import required_packages
-        function, args, kwargs = self.run_spec
-        logger.info('Function name is %s', str(funcname(function))[:1000])
-        key = re.split('_', str(funcname(function))[:1000])[0]
-        return required_packages.required_packages[key]
+    # Extract user ID from run_spec
+    # Assumes arguments contain "user_id" keyword argument
+    def extractUserId(self):
+        # Assuming the submitted task includes "user_id" in its kwargs
+        try:
+            function, args, kwargs = self.run_spec
+            return kwargs.get("user_id", None)
+        except Exception:
+            return None
     
     """"""""""""""""""""""""""""""""""""""""""
     "             Changes end.               "
@@ -1710,16 +1685,6 @@ class SchedulerState:
     #: Total number of transitions as of the previous call to check_idle()
     _idle_transition_counter: int
 
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes start.             "
-    """"""""""""""""""""""""""""""""""""""""""
-    # store cached pacakges of each machine
-    # key value: worker address
-    cached_packages = dict[str, list[str]]
-
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes end.               "
-    """"""""""""""""""""""""""""""""""""""""""
 
     #: Raise an error if the :attr:`transition_counter` ever reaches this value.
     #: This is meant for debugging only, to catch infinite recursion loops.
@@ -1806,18 +1771,6 @@ class SchedulerState:
         }
         self.plugins = {} if not plugins else {_get_plugin_name(p): p for p in plugins}
 
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""
-        # init cached_packages
-        self.cached_packages = {}
-        for ws in self.workers.values():
-            self.cached_packages[ws.address] = [None]
-        
-        logger.info(str(self.cached_packages.keys()))
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
 
         self.transition_log = deque(
             maxlen=dask.config.get("distributed.scheduler.transition-log-length")
@@ -1903,14 +1856,6 @@ class SchedulerState:
         """Create a new task, and associated states"""
         ts = TaskState(key, spec, state)
 
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""
-        # generate required package info
-        ts.extractRequiredPackage()
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
 
         prefix_key = key_split(key)
         tp = self.task_prefixes.get(prefix_key)
@@ -2207,18 +2152,6 @@ class SchedulerState:
 
         return {}, {}, {}
 
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes start.             "
-    """"""""""""""""""""""""""""""""""""""""""
-    # update cached packages
-    def updateCachedPackages(self, ws_address: str, packages: list[str]):
-        for p in packages:
-            if p not in self.cached_packages[ws_address]:
-                self.cached_packages[ws_address].append(p)
-
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes end.               "
-    """"""""""""""""""""""""""""""""""""""""""
 
     def decide_worker_rootish_queuing_disabled(
         self, ts: TaskState
@@ -2250,70 +2183,35 @@ class SchedulerState:
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes start.             "
         """"""""""""""""""""""""""""""""""""""""""        
-        # pool = self.idle.values() if self.idle else self.running
-        # if not pool:
-        #     return None
-
         pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
         
         ws = None
-
-        # determine the home invoker id
-        num_invokers = len(pool)
-        logger.info("num_invokers = %s", str(num_invokers))
-        # record how many packages are cached on each node
-        cnt_cached_packages = {}
-        for id in range(num_invokers):
-            logger.info(str(self.cached_packages.keys()))
-            cnt = cntCachedPackage(ts.requiredPackages, self.cached_packages[list(pool)[id].address])
-            cnt_cached_packages[id] = cnt
-        
         while True:
-            invoker_id = max(cnt_cached_packages, key = cnt_cached_packages.get)
-            # no server with cached package, randomly choose one
-            if cnt_cached_packages[invoker_id] == 0: 
-                import random
-                idle_pool = self.idle.values()
-                if not idle_pool:
-                    return None
-                ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
-                break
-
-            if (
-                list(pool)[invoker_id].status ==  Status.running
-                and list(pool)[invoker_id].address in self.idle.keys()
-            ):
-                ws = list(pool)[invoker_id]
-                break
+            if getattr(ts, "userId", None):
+                # Prefer an IDLE worker that already runs this user
+                for ws in pool:
+                    # ws.processing holds TaskState objects currently running here
+                    # If any of them shares the same userId, pick this worker.
+                    if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
+                        # Optionally ensure it’s actually idle / has capacity
+                        if ws.address in self.idle.keys() and ws.status == Status.running:
+                            # (Optional) 
+                            logger.info("Same-user worker %s selected", ws.address)
+                            # Keep your existing package-cache update after final selection
+                            # self.updateCachedPackages(ws.address, ts.requiredPackages)
+                            break
+                # # If we didn’t find an idle same-user worker, you could also pick a running one:
+                # for ws in pool:
+                #     if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
+                #         if ws.status == Status.running:
+                #             break
             else:
-                # remove current id info in cnt_cached_packages
-                del cnt_cached_packages[invoker_id]
-            
-        ### Start of the original code from dask.distributed
-        # tg = ts.group
-        # lws = tg.last_worker
-        # if (
-        #     lws
-        #     and tg.last_worker_tasks_left
-        #     and lws.status == Status.running
-        #     and self.workers.get(lws.address) is lws
-        # ):
-        #     ws = lws
-        # else:
-        #     # Last-used worker is full, unknown, retiring, or paused;
-        #     # pick a new worker for the next few tasks
-        #     ws = min(pool, key=partial(self.worker_objective, ts))
-        #     tg.last_worker_tasks_left = math.floor(
-        #         (len(tg) / self.total_nthreads) * ws.nthreads
-        #     )
-
-        # # Record `last_worker`, or clear it on the final task
-        # tg.last_worker = (
-        #     ws if tg.states["released"] + tg.states["waiting"] > 1 else None
-        # )
-        # tg.last_worker_tasks_left -= 1
+                logger.info("No userId associated with task %s", ts.key)
+                logger.info("Randomly selecting worker")
+                ws = list(pool)[random.randint(0, len(pool) - 1)]
+                break
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2328,9 +2226,6 @@ class SchedulerState:
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
         logger.info("Worker selected. Worker id: %s", ws.address)
-
-        # Update packages
-        self.updateCachedPackages(ws.address, ts.requiredPackages)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2384,49 +2279,30 @@ class SchedulerState:
             return None
         
         ws = None
-
-        # determine the home invoker id
-        num_invokers = len(pool)
-        logger.info("num_invokers = %s", str(num_invokers))
-        cnt_cached_packages = {}
-        for id in range(num_invokers):
-            logger.info(str(self.cached_packages.keys()))
-            cnt = cntCachedPackage(ts.requiredPackages, self.cached_packages[list(pool)[id].address])
-            cnt_cached_packages[id] = cnt
-        
         while True:
-            invoker_id = max(cnt_cached_packages, key = cnt_cached_packages.get)
-            # no server with cached package, randomly choose one
-            if cnt_cached_packages[invoker_id] == 0: 
-                import random
-                idle_pool = self.idle.values()
-                if not idle_pool:
-                    return None
-                ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
-                break
-
-            if (
-                list(pool)[invoker_id].status ==  Status.running
-                and list(pool)[invoker_id].address in self.idle.keys()
-            ):
-                ws = list(pool)[invoker_id]
-                break
+            if getattr(ts, "userId", None):
+                # Prefer an IDLE worker that already runs this user
+                for ws in pool:
+                    # ws.processing holds TaskState objects currently running here
+                    # If any of them shares the same userId, pick this worker.
+                    if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
+                        # Optionally ensure it’s actually idle / has capacity
+                        if ws.address in self.idle.keys() and ws.status == Status.running:
+                            # (Optional) 
+                            logger.info("Same-user worker %s selected", ws.address)
+                            # Keep your existing package-cache update after final selection
+                            # self.updateCachedPackages(ws.address, ts.requiredPackages)
+                            break
+                # # If we didn’t find an idle same-user worker, you could also pick a running one:
+                # for ws in pool:
+                #     if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
+                #         if ws.status == Status.running:
+                #             break
             else:
-                # remove current id info in cnt_cached_packages
-                del cnt_cached_packages[invoker_id]
-        ### Start of the original code from dask.distributed
-        # Just pick the least busy worker.
-        # NOTE: this will lead to worst-case scheduling with regards to co-assignment.
-        # ws = min(
-        #     self.idle_task_count,
-        #     key=lambda ws: len(ws.processing) / ws.nthreads,
-        # )
-        # if self.validate:
-        #     assert not _worker_full(ws, self.WORKER_SATURATION), (
-        #         ws,
-        #         _task_slots_available(ws, self.WORKER_SATURATION),
-        #     )
-        #     assert ws in self.running, (ws, self.running)
+                logger.info("No userId associated with task %s", ts.key)
+                logger.info("Randomly selecting worker")
+                ws = list(pool)[random.randint(0, len(pool) - 1)]
+                break
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2439,8 +2315,6 @@ class SchedulerState:
         # Debugging info
         logger.info("Worker selected. Worker id: %s", ws.address)
 
-        # Update packages
-        self.updateCachedPackages(ws.address, ts.requiredPackages)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2471,98 +2345,30 @@ class SchedulerState:
             return None
         
         ws = None
-
-        # determine the home invoker id
-        num_invokers = len(pool)
-        logger.info("num_invokers = %s", str(num_invokers))
-        cnt_cached_packages = {}
-
-        #### Debug####
-        logger.info("Required package: %s", str(ts.requiredPackages))
-        ##############
-
-        for id in range(num_invokers):
-            try:
-                cnt = cntCachedPackage(ts.requiredPackages, self.cached_packages[list(pool)[id].address])
-
-                #### Debug####
-                logger.info("Server address: %s, Cached package: %s", list(pool)[id].address, str(self.cached_packages[list(pool)[id].address]))
-                ##############
-
-            except KeyError:
-                logger.info(str(self.cached_packages.keys()))
-                logger.info(str(self.running))
-                return None
-            cnt_cached_packages[id] = cnt
-        
         while True:
-            invoker_id = max(cnt_cached_packages, key = cnt_cached_packages.get)
-            # no server with cached package, randomly choose one
-            if cnt_cached_packages[invoker_id] == 0: 
-                import random
-                idle_pool = self.idle.values()
-                if not idle_pool:
-                    return None
-                invoker_id = random.randint(0, len(idle_pool) - 1)
-                ws = list(idle_pool)[invoker_id]
-                logger.info('Decided worker at the second stage. Worker address = %s', ws.address)
-                break
-
-            if (
-                list(pool)[invoker_id].status ==  Status.running
-                and list(pool)[invoker_id].address in self.idle.keys()
-            ):
-                
-                ws = list(pool)[invoker_id]
-                logger.info('Decided worker at the first stage. Worker address = %s', ws.address)
-                break
+            if getattr(ts, "userId", None):
+                # Prefer an IDLE worker that already runs this user
+                for ws in pool:
+                    # ws.processing holds TaskState objects currently running here
+                    # If any of them shares the same userId, pick this worker.
+                    if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
+                        # Optionally ensure it’s actually idle / has capacity
+                        if ws.address in self.idle.keys() and ws.status == Status.running:
+                            # (Optional) 
+                            logger.info("Same-user worker %s selected", ws.address)
+                            # Keep your existing package-cache update after final selection
+                            # self.updateCachedPackages(ws.address, ts.requiredPackages)
+                            break
+                # # If we didn’t find an idle same-user worker, you could also pick a running one:
+                # for ws in pool:
+                #     if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
+                #         if ws.status == Status.running:
+                #             break
             else:
-                # remove current id info in cnt_cached_packages
-                del cnt_cached_packages[invoker_id]
-        
-        ### Start of the original code from dask.distributed
-        # valid_workers = self.valid_workers(ts)
-        # if valid_workers is None and len(self.running) < len(self.workers):
-        #     # If there were no restrictions, `valid_workers()` didn't subset by
-        #     # `running`.
-        #     valid_workers = self.running
-
-        # if ts.dependencies or valid_workers is not None:
-        #     ws = decide_worker(
-        #         ts,
-        #         self.running,
-        #         valid_workers,
-        #         partial(self.worker_objective, ts),
-        #     )
-        # else:
-            
-        #     # TODO if `is_rootish` would always return True for tasks without
-        #     # dependencies, we could remove all this logic. The rootish assignment logic
-        #     # would behave more or less the same as this, maybe without guaranteed
-        #     # round-robin though? This path is only reachable when `ts` doesn't have
-        #     # dependencies, but its group is also smaller than the cluster.
-
-        #     # Fastpath when there are no related tasks or restrictions
-        #     worker_pool = self.idle or self.workers
-        #     # FIXME idle and workers are SortedDict's declared as dicts
-        #     #       because sortedcontainers is not annotated
-        #     wp_vals = cast("Sequence[WorkerState]", worker_pool.values())
-        #     n_workers = len(wp_vals)
-        #     if n_workers < 20:  # smart but linear in small case
-        #         ws = min(wp_vals, key=operator.attrgetter("occupancy"))
-        #         assert ws
-        #         if ws.occupancy == 0:
-        #             # special case to use round-robin; linear search
-        #             # for next worker with zero occupancy (or just
-        #             # land back where we started).
-        #             start = self.n_tasks % n_workers
-        #             for i in range(n_workers):
-        #                 wp_i = wp_vals[(i + start) % n_workers]
-        #                 if wp_i.occupancy == 0:
-        #                     ws = wp_i
-        #                     break
-        #     else:  # dumb but fast in large case
-        #         ws = wp_vals[self.n_tasks % n_workers]
+                logger.info("No userId associated with task %s", ts.key)
+                logger.info("Randomly selecting worker")
+                ws = list(pool)[random.randint(0, len(pool) - 1)]
+                break
 
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
@@ -2576,8 +2382,6 @@ class SchedulerState:
         # Debugging info
         logger.info("Worker selected. Worker id: %s", ws.address)
 
-        # Update packages
-        self.updateCachedPackages(ws.address, ts.requiredPackages)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -4569,13 +4373,6 @@ class Scheduler(SchedulerState, ServerNode):
             server_id=server_id,
             scheduler=self,
         )
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""
-        self.cached_packages[address] = []
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
         if ws.status == Status.running:
             self.running.add(ws)
 
@@ -5346,13 +5143,6 @@ class Scheduler(SchedulerState, ServerNode):
         self.idle_task_count.discard(ws)
         self.saturated.discard(ws)
         del self.workers[address]
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""
-        del self.cached_packages[address]
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
         ws.status = Status.closed
         self.running.discard(ws)
 
