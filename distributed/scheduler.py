@@ -2186,9 +2186,12 @@ class SchedulerState:
         pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
+        # Print pool workers
+        logger.info("###Available workers for root-ish task %s: %s", ts.key, [ws.address for ws in pool])
         
         ws = None
         # Step 1: try to find an idle worker that already runs this user
+        logger.info("###Deciding worker for root-ish task %s", ts.key)
         if getattr(ts, "userId", None):
             for candidate_ws in pool:
                 # candidate_ws.processing holds TaskState objects currently running here
@@ -2274,9 +2277,12 @@ class SchedulerState:
         pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
+        # Print pool workers
+        logger.info("###Available workers for root-ish task %s: %s", ts.key, [ws.address for ws in pool])
         
         ws = None
         # Step 1: try to find an idle worker that already runs this user
+        logger.info("###Deciding worker for root-ish task %s", ts.key)
         if getattr(ts, "userId", None):
             for candidate_ws in pool:
                 # candidate_ws.processing holds TaskState objects currently running here
@@ -2338,9 +2344,12 @@ class SchedulerState:
         pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
-        
+        # Print pool workers
+        logger.info("###Available workers for non-root-ish task %s: %s", ts.key, [ws.address for ws in pool])
+
         ws = None
         # Step 1: try to find an idle worker that already runs this user
+        logger.info("###Deciding worker for non-root-ish task %s", ts.key)
         if getattr(ts, "userId", None):
             for candidate_ws in pool:
                 # candidate_ws.processing holds TaskState objects currently running here
