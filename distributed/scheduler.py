@@ -2188,30 +2188,29 @@ class SchedulerState:
             return None
         
         ws = None
-        while True:
-            if getattr(ts, "userId", None):
-                # Prefer an IDLE worker that already runs this user
-                for ws in pool:
-                    # ws.processing holds TaskState objects currently running here
-                    # If any of them shares the same userId, pick this worker.
-                    if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
-                        # Optionally ensure it’s actually idle / has capacity
-                        if ws.address in self.idle.keys() and ws.status == Status.running:
-                            # (Optional) 
-                            logger.info("Same-user worker %s selected", ws.address)
-                            # Keep your existing package-cache update after final selection
-                            # self.updateCachedPackages(ws.address, ts.requiredPackages)
-                            break
-                # # If we didn’t find an idle same-user worker, you could also pick a running one:
-                # for ws in pool:
-                #     if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
-                #         if ws.status == Status.running:
-                #             break
-            else:
-                logger.info("No userId associated with task %s", ts.key)
-                logger.info("Randomly selecting worker")
-                ws = list(pool)[random.randint(0, len(pool) - 1)]
-                break
+        
+        if getattr(ts, "userId", None):
+            # Prefer an IDLE worker that already runs this user
+            for ws in pool:
+                # ws.processing holds TaskState objects currently running here
+                # If any of them shares the same userId, pick this worker.
+                if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
+                    # Optionally ensure it’s actually idle / has capacity
+                    if ws.address in self.idle.keys() and ws.status == Status.running:
+                        # (Optional) 
+                        logger.info("Same-user worker %s selected", ws.address)
+                        # Keep your existing package-cache update after final selection
+                        # self.updateCachedPackages(ws.address, ts.requiredPackages)
+                        break
+            # # If we didn’t find an idle same-user worker, you could also pick a running one:
+            # for ws in pool:
+            #     if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
+            #         if ws.status == Status.running:
+            #             break
+        else:
+            logger.info("No userId associated with task %s", ts.key)
+            logger.info("Randomly selecting worker")
+            ws = list(pool)[random.randint(0, len(pool) - 1)]
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2279,30 +2278,29 @@ class SchedulerState:
             return None
         
         ws = None
-        while True:
-            if getattr(ts, "userId", None):
-                # Prefer an IDLE worker that already runs this user
-                for ws in pool:
-                    # ws.processing holds TaskState objects currently running here
-                    # If any of them shares the same userId, pick this worker.
-                    if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
-                        # Optionally ensure it’s actually idle / has capacity
-                        if ws.address in self.idle.keys() and ws.status == Status.running:
-                            # (Optional) 
-                            logger.info("Same-user worker %s selected", ws.address)
-                            # Keep your existing package-cache update after final selection
-                            # self.updateCachedPackages(ws.address, ts.requiredPackages)
-                            break
-                # # If we didn’t find an idle same-user worker, you could also pick a running one:
-                # for ws in pool:
-                #     if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
-                #         if ws.status == Status.running:
-                #             break
-            else:
-                logger.info("No userId associated with task %s", ts.key)
-                logger.info("Randomly selecting worker")
-                ws = list(pool)[random.randint(0, len(pool) - 1)]
-                break
+        if getattr(ts, "userId", None):
+            # Prefer an IDLE worker that already runs this user
+            for ws in pool:
+                # ws.processing holds TaskState objects currently running here
+                # If any of them shares the same userId, pick this worker.
+                if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
+                    # Optionally ensure it’s actually idle / has capacity
+                    if ws.address in self.idle.keys() and ws.status == Status.running:
+                        # (Optional) 
+                        logger.info("Same-user worker %s selected", ws.address)
+                        # Keep your existing package-cache update after final selection
+                        # self.updateCachedPackages(ws.address, ts.requiredPackages)
+                        break
+            # # If we didn’t find an idle same-user worker, you could also pick a running one:
+            # for ws in pool:
+            #     if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
+            #         if ws.status == Status.running:
+            #             break
+        else:
+            logger.info("No userId associated with task %s", ts.key)
+            logger.info("Randomly selecting worker")
+            ws = list(pool)[random.randint(0, len(pool) - 1)]
+            
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2345,30 +2343,28 @@ class SchedulerState:
             return None
         
         ws = None
-        while True:
-            if getattr(ts, "userId", None):
-                # Prefer an IDLE worker that already runs this user
-                for ws in pool:
-                    # ws.processing holds TaskState objects currently running here
-                    # If any of them shares the same userId, pick this worker.
-                    if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
-                        # Optionally ensure it’s actually idle / has capacity
-                        if ws.address in self.idle.keys() and ws.status == Status.running:
-                            # (Optional) 
-                            logger.info("Same-user worker %s selected", ws.address)
-                            # Keep your existing package-cache update after final selection
-                            # self.updateCachedPackages(ws.address, ts.requiredPackages)
-                            break
-                # # If we didn’t find an idle same-user worker, you could also pick a running one:
-                # for ws in pool:
-                #     if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
-                #         if ws.status == Status.running:
-                #             break
-            else:
-                logger.info("No userId associated with task %s", ts.key)
-                logger.info("Randomly selecting worker")
-                ws = list(pool)[random.randint(0, len(pool) - 1)]
-                break
+        if getattr(ts, "userId", None):
+            # Prefer an IDLE worker that already runs this user
+            for ws in pool:
+                # ws.processing holds TaskState objects currently running here
+                # If any of them shares the same userId, pick this worker.
+                if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
+                    # Optionally ensure it’s actually idle / has capacity
+                    if ws.address in self.idle.keys() and ws.status == Status.running:
+                        # (Optional) 
+                        logger.info("Same-user worker %s selected", ws.address)
+                        # Keep your existing package-cache update after final selection
+                        # self.updateCachedPackages(ws.address, ts.requiredPackages)
+                        break
+            # # If we didn’t find an idle same-user worker, you could also pick a running one:
+            # for ws in pool:
+            #     if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
+            #         if ws.status == Status.running:
+            #             break
+        else:
+            logger.info("No userId associated with task %s", ts.key)
+            logger.info("Randomly selecting worker")
+            ws = list(pool)[random.randint(0, len(pool) - 1)]
 
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
