@@ -2188,29 +2188,37 @@ class SchedulerState:
             return None
         
         ws = None
-        
+        # Step 1: try to find an idle worker that already runs this user
         if getattr(ts, "userId", None):
-            # Prefer an IDLE worker that already runs this user
-            for ws in pool:
-                # ws.processing holds TaskState objects currently running here
-                # If any of them shares the same userId, pick this worker.
-                if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
-                    # Optionally ensure it’s actually idle / has capacity
-                    if ws.address in self.idle.keys() and ws.status == Status.running:
-                        # (Optional) 
-                        logger.info("Same-user worker %s selected", ws.address)
-                        # Keep your existing package-cache update after final selection
-                        # self.updateCachedPackages(ws.address, ts.requiredPackages)
-                        break
-            # # If we didn’t find an idle same-user worker, you could also pick a running one:
-            # for ws in pool:
-            #     if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
-            #         if ws.status == Status.running:
-            #             break
-        else:
-            logger.info("No userId associated with task %s", ts.key)
-            logger.info("Randomly selecting worker")
-            ws = list(pool)[random.randint(0, len(pool) - 1)]
+            for candidate_ws in pool:
+                # candidate_ws.processing holds TaskState objects currently running here
+                if any(getattr(t, "userId", None) == ts.userId for t in candidate_ws.processing):
+                    # idleness was already checked in pool selection
+                    ws = candidate_ws
+                    # Debug logging
+                    logger.info("Same-user worker %s selected", candidate_ws.address)
+                    break
+
+        # Step 2: if no same-user worker found, pick a least-user variability worker.
+        if not ws:
+            # Debug logging
+            logger.info("No userId associated with task %s or such node is not available", ts.key)
+            logger.info("Selecting least-user variable worker")
+
+            min_user_var = float('inf')
+            for candidate_ws in pool:
+                # Calculate user variability on this worker
+                # Python set automatically handles uniqueness
+                user_ids = {getattr(t, "userId", None) for t in candidate_ws.processing}
+                user_var = len(user_ids)
+
+                if user_var < min_user_var:
+                    min_user_var = user_var
+                    ws = candidate_ws
+                    # Debug logging
+                    logger.info("Current least-user variable worker updated to %s", ws.address)
+            # Debug logging
+            logger.info("Least-user variable worker %s selected", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2218,16 +2226,6 @@ class SchedulerState:
         if self.validate and ws is not None:
             assert self.workers.get(ws.address) is ws
             assert ws in self.running, (ws, self.running)
-        
-        
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """""""""""""""""""""""""""""""""""""""""" 
-        # Debugging info
-        logger.info("Worker selected. Worker id: %s", ws.address)
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
         return ws
 
     def decide_worker_rootish_queuing_enabled(self, 
@@ -2278,44 +2276,43 @@ class SchedulerState:
             return None
         
         ws = None
+        # Step 1: try to find an idle worker that already runs this user
         if getattr(ts, "userId", None):
-            # Prefer an IDLE worker that already runs this user
-            for ws in pool:
-                # ws.processing holds TaskState objects currently running here
-                # If any of them shares the same userId, pick this worker.
-                if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
-                    # Optionally ensure it’s actually idle / has capacity
-                    if ws.address in self.idle.keys() and ws.status == Status.running:
-                        # (Optional) 
-                        logger.info("Same-user worker %s selected", ws.address)
-                        # Keep your existing package-cache update after final selection
-                        # self.updateCachedPackages(ws.address, ts.requiredPackages)
-                        break
-            # # If we didn’t find an idle same-user worker, you could also pick a running one:
-            # for ws in pool:
-            #     if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
-            #         if ws.status == Status.running:
-            #             break
-        else:
-            logger.info("No userId associated with task %s", ts.key)
-            logger.info("Randomly selecting worker")
-            ws = list(pool)[random.randint(0, len(pool) - 1)]
-            
+            for candidate_ws in pool:
+                # candidate_ws.processing holds TaskState objects currently running here
+                if any(getattr(t, "userId", None) == ts.userId for t in candidate_ws.processing):
+                    # idleness was already checked in pool selection
+                    ws = candidate_ws
+                    # Debug logging
+                    logger.info("Same-user worker %s selected", candidate_ws.address)
+                    break
+
+        # Step 2: if no same-user worker found, pick a least-user variability worker.
+        if not ws:
+            # Debug logging
+            logger.info("No userId associated with task %s or such node is not available", ts.key)
+            logger.info("Selecting least-user variable worker")
+
+            min_user_var = float('inf')
+            for candidate_ws in pool:
+                # Calculate user variability on this worker
+                # Python set automatically handles uniqueness
+                user_ids = {getattr(t, "userId", None) for t in candidate_ws.processing}
+                user_var = len(user_ids)
+
+                if user_var < min_user_var:
+                    min_user_var = user_var
+                    ws = candidate_ws
+                    # Debug logging
+                    logger.info("Current least-user variable worker updated to %s", ws.address)
+            # Debug logging
+            logger.info("Least-user variable worker %s selected", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
         if self.validate and ws is not None:
             assert self.workers.get(ws.address) is ws
             assert ws in self.running, (ws, self.running)
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """""""""""""""""""""""""""""""""""""""""" 
-        # Debugging info
-        logger.info("Worker selected. Worker id: %s", ws.address)
-
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
         return ws
 
     def decide_worker_non_rootish(self, ts: TaskState) -> WorkerState | None:
@@ -2343,44 +2340,43 @@ class SchedulerState:
             return None
         
         ws = None
+        # Step 1: try to find an idle worker that already runs this user
         if getattr(ts, "userId", None):
-            # Prefer an IDLE worker that already runs this user
-            for ws in pool:
-                # ws.processing holds TaskState objects currently running here
-                # If any of them shares the same userId, pick this worker.
-                if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
-                    # Optionally ensure it’s actually idle / has capacity
-                    if ws.address in self.idle.keys() and ws.status == Status.running:
-                        # (Optional) 
-                        logger.info("Same-user worker %s selected", ws.address)
-                        # Keep your existing package-cache update after final selection
-                        # self.updateCachedPackages(ws.address, ts.requiredPackages)
-                        break
-            # # If we didn’t find an idle same-user worker, you could also pick a running one:
-            # for ws in pool:
-            #     if any(getattr(t, "userId", None) == ts.userId for t in ws.processing):
-            #         if ws.status == Status.running:
-            #             break
-        else:
-            logger.info("No userId associated with task %s", ts.key)
-            logger.info("Randomly selecting worker")
-            ws = list(pool)[random.randint(0, len(pool) - 1)]
+            for candidate_ws in pool:
+                # candidate_ws.processing holds TaskState objects currently running here
+                if any(getattr(t, "userId", None) == ts.userId for t in candidate_ws.processing):
+                    # idleness was already checked in pool selection
+                    ws = candidate_ws
+                    # Debug logging
+                    logger.info("Same-user worker %s selected", candidate_ws.address)
+                    break
 
+        # Step 2: if no same-user worker found, pick a least-user variability worker.
+        if not ws:
+            # Debug logging
+            logger.info("No userId associated with task %s or such node is not available", ts.key)
+            logger.info("Selecting least-user variable worker")
+
+            min_user_var = float('inf')
+            for candidate_ws in pool:
+                # Calculate user variability on this worker
+                # Python set automatically handles uniqueness
+                user_ids = {getattr(t, "userId", None) for t in candidate_ws.processing}
+                user_var = len(user_ids)
+
+                if user_var < min_user_var:
+                    min_user_var = user_var
+                    ws = candidate_ws
+                    # Debug logging
+                    logger.info("Current least-user variable worker updated to %s", ws.address)
+            # Debug logging
+            logger.info("Least-user variable worker %s selected", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
         if self.validate and ws is not None:
             assert self.workers.get(ws.address) is ws
             assert ws in self.running, (ws, self.running)
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """""""""""""""""""""""""""""""""""""""""" 
-        # Debugging info
-        logger.info("Worker selected. Worker id: %s", ws.address)
-
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
         return ws
 
     def transition_waiting_processing(self, key: str, stimulus_id: str) -> RecsMsgs:
