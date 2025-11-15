@@ -1554,6 +1554,8 @@ class TaskState:
         # Assuming the submitted task includes "user_id" in its kwargs
         try:
             function, args, kwargs = self.run_spec
+            logger.info("--------------------------------")
+            logger.info(f"Extracting user ID from task {self.key} with run_spec {self.run_spec}")
             return kwargs.get("user_id", None)
         except Exception:
             return None
