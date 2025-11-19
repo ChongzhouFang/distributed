@@ -2288,7 +2288,7 @@ class SchedulerState:
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
         # logger.info("inv_freq: %s", str(self.inv_freq))
-        logger.info("Worker selected. Worker id: %s", ws.address)
+        # logger.info("Worker selected. Worker id: %s", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2405,7 +2405,7 @@ class SchedulerState:
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
         # logger.info("inv_freq: %s", str(self.inv_freq))
-        logger.info("Worker selected. Worker id: %s", ws.address)
+        # logger.info("Worker selected. Worker id: %s", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2532,7 +2532,7 @@ class SchedulerState:
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
         # logger.info("inv_freq: %s", str(self.inv_freq))
-        logger.info("Worker selected. Worker id: %s", ws.address)
+        # logger.info("Worker selected. Worker id: %s", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
