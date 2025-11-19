@@ -2260,13 +2260,14 @@ class SchedulerState:
             else:
                 invoker_id = (invoker_id + step) % num_invokers
                 temp_count += 1
-                if temp_count >= len(pool):
+                if temp_count >= len(pool) - 1:
                     # Already gone through all potential invokers, now randomly select one healthy idle server
                     import random
-                    idle_pool = self.idle.values()
-                    if not idle_pool:
-                        return None
-                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
+                    # idle_pool = self.idle.values()
+                    # if not idle_pool:
+                    #     return None
+                    ws = list(pool)[random.randint(0, len(pool) - 1)]
+                    logger.info('Decided worker at the second stage. Worker index = %d', invoker_id)
                     break
 
         ### Start of the original code from dask.distributed
@@ -2387,14 +2388,15 @@ class SchedulerState:
             else:
                 invoker_id = (invoker_id + step) % num_invokers
                 temp_count += 1
-                if temp_count >= len(pool):
+                if temp_count >= len(pool) - 1:
                     # Already gone through all potential invokers, now randomly select one healthy idle server
                     import random
-                    idle_pool = self.idle.values()
-                    if not idle_pool:
-                        # Queued
-                        return None
-                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
+                    # idle_pool = self.idle.values()
+                    # if not idle_pool:
+                    #     # Queued
+                    #     return None
+                    ws = list(pool)[random.randint(0, len(pool) - 1)]
+                    logger.info('Decided worker at the second stage. Worker index = %d', invoker_id)
                     break
         ### Start of the original code from dask.distributed
         # Just pick the least busy worker.
@@ -2487,14 +2489,14 @@ class SchedulerState:
                 # debugging info
                 logger.info('Changing invoker index. Invoker index = %d', invoker_id)
                 temp_count += 1
-                if temp_count >= len(pool):
+                if temp_count >= len(pool) - 1:
                     # Already gone through all potential invokers, now randomly select one healthy idle server
                     import random
-                    idle_pool = self.idle.values()
-                    if not idle_pool:
-                        # Queued
-                        return None
-                    ws = list(idle_pool)[random.randint(0, len(idle_pool) - 1)]
+                    # idle_pool = self.idle.values()
+                    # if not idle_pool:
+                    #     # Queued
+                    #     return None
+                    ws = list(pool)[random.randint(0, len(pool) - 1)]
                     # debugging info
                     logger.info('Decided worker at the second stage. Worker index = %d', invoker_id)
                     break
