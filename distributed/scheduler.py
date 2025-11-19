@@ -2227,6 +2227,7 @@ class SchedulerState:
             selected_index = random.randint(0, len(pool) - 1)
             ws = list(pool)[selected_index]
             _ = self.maintain_inv_freq(function_name, ws.address)
+            logger.info("First time scheduling for this operation. Worker id: %s", ws.address)
         
         # 2. this app has been scheduled, randomly select one to avoid cold start
         
@@ -2241,7 +2242,13 @@ class SchedulerState:
                 for i in range(len(pool)):
                     if list(pool)[i].address == selected_worker_addr:
                         ws = list(pool)[i]
+                        logger.info("Warm start scheduling. Worker id: %s", ws.address)
                         break
+                if ws is None:
+                    # fallback in case the selected worker is not in the pool
+                    selected_index = random.randint(0, len(pool) - 1)
+                    ws = list(pool)[selected_index]
+                    logger.info("Fallback scheduling. Worker id: %s", ws.address)
             # need a helper
             else:   
                 selected_index = random.randint(0, len(pool) - 1)
@@ -2249,6 +2256,7 @@ class SchedulerState:
                     selected_index = random.randint(0, len(pool) - 1)
                 
                 ws = list(pool)[selected_index]
+                logger.info("Cold start scheduling. Worker id: %s", ws.address)
                 _ = self.maintain_inv_freq(function_name, ws.address)
 
         ### Start of the original code from dask.distributed
@@ -2288,7 +2296,7 @@ class SchedulerState:
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
         # logger.info("inv_freq: %s", str(self.inv_freq))
-        # logger.info("Worker selected. Worker id: %s", ws.address)
+        logger.info("Worker selected. Worker id: %s", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2357,6 +2365,7 @@ class SchedulerState:
         if function_name not in self.inv_freq.keys():
             selected_index = random.randint(0, len(pool) - 1)
             ws = list(pool)[selected_index]
+            logger.info("First time scheduling for this operation. Worker id: %s", ws.address)
             _ = self.maintain_inv_freq(function_name, ws.address)
         
         # 2. this app has been scheduled, randomly select one to avoid cold start
@@ -2372,7 +2381,13 @@ class SchedulerState:
                 for i in range(len(pool)):
                     if list(pool)[i].address == selected_worker_addr:
                         ws = list(pool)[i]
+                        logger.info("Warm start scheduling. Worker id: %s", ws.address)
                         break
+                if ws is None:
+                    # fallback in case the selected worker is not in the pool
+                    selected_index = random.randint(0, len(pool) - 1)
+                    ws = list(pool)[selected_index]
+                    logger.info("Fallback scheduling. Worker id: %s", ws.address)
             # need a helper
             else:   
                 selected_index = random.randint(0, len(pool) - 1)
@@ -2380,6 +2395,7 @@ class SchedulerState:
                     selected_index = random.randint(0, len(pool) - 1)
                 
                 ws = list(pool)[selected_index]
+                logger.info("Cold start scheduling. Worker id: %s", ws.address)
                 _ = self.maintain_inv_freq(function_name, ws.address)
         ### Start of the original code from dask.distributed
         # Just pick the least busy worker.
@@ -2405,7 +2421,7 @@ class SchedulerState:
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
         # logger.info("inv_freq: %s", str(self.inv_freq))
-        # logger.info("Worker selected. Worker id: %s", ws.address)
+        logger.info("Worker selected. Worker id: %s", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2451,6 +2467,7 @@ class SchedulerState:
         if function_name not in self.inv_freq.keys():
             selected_index = random.randint(0, len(pool) - 1)
             ws = list(pool)[selected_index]
+            logger.info("First time scheduling for this operation. Worker id: %s", ws.address)
             _ = self.maintain_inv_freq(function_name, ws.address)
         
         # 2. this app has been scheduled, randomly select one to avoid cold start
@@ -2466,7 +2483,13 @@ class SchedulerState:
                 for i in range(len(pool)):
                     if list(pool)[i].address == selected_worker_addr:
                         ws = list(pool)[i]
+                        logger.info("Warm start scheduling. Worker id: %s", ws.address)
                         break
+                if ws is None:
+                    # fallback in case the selected worker is not in the pool
+                    selected_index = random.randint(0, len(pool) - 1)
+                    ws = list(pool)[selected_index]
+                    logger.info("Fallback scheduling. Worker id: %s", ws.address)
             # need a helper
             else:   
                 selected_index = random.randint(0, len(pool) - 1)
@@ -2474,6 +2497,7 @@ class SchedulerState:
                     selected_index = random.randint(0, len(pool) - 1)
                 
                 ws = list(pool)[selected_index]
+                logger.info("Cold start scheduling. Worker id: %s", ws.address)
                 _ = self.maintain_inv_freq(function_name, ws.address)
 
         
@@ -2532,7 +2556,7 @@ class SchedulerState:
         """""""""""""""""""""""""""""""""""""""""" 
         # Debugging info
         # logger.info("inv_freq: %s", str(self.inv_freq))
-        # logger.info("Worker selected. Worker id: %s", ws.address)
+        logger.info("Worker selected. Worker id: %s", ws.address)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
