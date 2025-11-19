@@ -2245,6 +2245,8 @@ class SchedulerState:
         # determine which step to use
         if steps:
             step = list(steps)[ts.schedule_hash % len(steps)]
+        else:
+            step = 1
 
         invoker_id = home_invoker_id
         while True:
@@ -2368,6 +2370,8 @@ class SchedulerState:
         # determine which step to use
         if steps:
             step = list(steps)[ts.schedule_hash % len(steps)]
+        else:
+            step = 1
 
         invoker_id = home_invoker_id
         while True:
@@ -2457,6 +2461,8 @@ class SchedulerState:
         # determine which step to use
         if steps:
             step = list(steps)[ts.schedule_hash % len(steps)]
+        else:
+            step = 1
 
         invoker_id = home_invoker_id
 
