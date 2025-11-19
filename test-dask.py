@@ -1,57 +1,95 @@
 #!/usr/bin/python
-import dask
-import distributed
-import os
 import random
+import time
+from dask.distributed import Client, wait
 
-def warmup(data):
-    print(
-        "Warming up!",
-        data
-    )
+# -------- Workloads (simple print-only) -------- #
 
-def linpack(data):
-    print(
-        "Linpack!",
-        data
-    )
+def chameleon(data, user_id=None):
+    print("chameleon!", data)
 
-def linpack2(data):
-    print(
-        "Linpack!",
-        data
-    )
+def floatoperation(data, user_id=None):
+    print("floatoperation!", data)
 
-def linpack3(data):
-    print(
-        "Linpack!",
-        data
-    )
+def jsondumpsloads(data, user_id=None):
+    print("jsondumpsloads!", data)
 
-def linpack4(data):
-    print(
-        "Linpack!",
-        data
-    )
+def linpack(data, user_id=None):
+    print("linpack!", data)
 
-def linpack5(data):
-    print(
-        "Linpack!",
-        data
-    )
+def matmul(data, user_id=None):
+    print("matmul!", data)
 
-def linpack6(data):
-    print(
-        "Linpack!",
-        data
-    )
+def pyaes(data, user_id=None):
+    print("pyaes!", data)
 
-if __name__ == '__main__':
-    c = distributed.Client('tcp://129.21.123.64:8786') # Chongzhou
-    # c = distributed.Client('tcp://172.31.246.35:8786') # Wei
-    futures = c.submit(linpack, random.randint(1,10000), user_id="bob124")
-    futures = c.submit(linpack2, random.randint(1,10000), user_id="bob124")
-    futures = c.submit(linpack3, random.randint(1,10000), user_id="bob124")
-    futures = c.submit(linpack4, random.randint(1,10000), user_id="bob125")
-    futures = c.submit(linpack5, random.randint(1,10000), user_id="bob126")
-    futures = c.submit(linpack6, random.randint(1,10000), user_id="bob127")
+def imageprocessing(data, user_id=None):
+    print("imageprocessing!", data)
+
+def startup(data, user_id=None):
+    print("startup!", data)
+
+
+WORKLOAD_FUNCS = {
+    "chameleon": chameleon,
+    "floatoperation": floatoperation,
+    "jsondumpsloads": jsondumpsloads,
+    "linpack": linpack,
+    "matmul": matmul,
+    "pyaes": pyaes,
+    "imageprocessing": imageprocessing,
+    "startup": startup,
+}
+
+# -------- Experiment driver -------- #
+
+if __name__ == "__main__":
+    # Connect to your scheduler (DoubleDip or vanilla)
+    client = Client("tcp://155.98.38.148:8786")  # adjust as needed
+
+    NUM_USERS = 5
+    NUM_TASKS = 500
+    USERS = [f"user-{i}" for i in range(NUM_USERS)]
+    WORKLOAD_TYPES = list(WORKLOAD_FUNCS.keys())
+
+    random.seed(42)
+
+    futures = []
+    meta = []  # (task_key, user_id, workload_type)
+
+    t0 = time.time()
+
+    for i in range(NUM_TASKS):
+        user_id = random.choice(USERS)
+        workload_type = random.choice(WORKLOAD_TYPES)
+        func = WORKLOAD_FUNCS[workload_type]
+
+        data = random.randint(1, 10000)
+
+        # key encodes user + workload + index
+        task_key = f"{user_id}-{workload_type}-{i}"
+
+        fut = client.submit(
+            func,
+            data,
+            user_id=user_id,   # scheduler uses this
+            key=task_key,      # good for log analysis
+            pure=False,
+        )
+
+        futures.append(fut)
+        meta.append((task_key, user_id, workload_type))
+
+    wait(futures)
+    t1 = time.time()
+
+    print(f"Submitted {NUM_TASKS} tasks from {NUM_USERS} users.")
+    print(f"Total runtime: {t1 - t0:.2f} seconds")
+
+    # Save mapping for later joining with scheduler logs
+    with open("client_task_meta.csv", "w") as f:
+        f.write("task_key,user_id,workload_type\n")
+        for key, uid, wtype in meta:
+            f.write(f"{key},{uid},{wtype}\n")
+
+    print("Wrote client_task_meta.csv")
