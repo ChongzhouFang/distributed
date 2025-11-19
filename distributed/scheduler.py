@@ -2249,6 +2249,7 @@ class SchedulerState:
             step = 1
 
         invoker_id = home_invoker_id
+        temp_count = 0
         while True:
             if (
                 list(pool)[invoker_id].status ==  Status.running
@@ -2258,7 +2259,8 @@ class SchedulerState:
                 break
             else:
                 invoker_id = (invoker_id + step) % num_invokers
-                if invoker_id == home_invoker_id:
+                temp_count += 1
+                if temp_count >= len(pool):
                     # Already gone through all potential invokers, now randomly select one healthy idle server
                     import random
                     idle_pool = self.idle.values()
@@ -2374,6 +2376,7 @@ class SchedulerState:
             step = 1
 
         invoker_id = home_invoker_id
+        temp_count = 0
         while True:
             if (
                 list(pool)[invoker_id].status ==  Status.running
@@ -2383,7 +2386,8 @@ class SchedulerState:
                 break
             else:
                 invoker_id = (invoker_id + step) % num_invokers
-                if invoker_id == home_invoker_id:
+                temp_count += 1
+                if temp_count >= len(pool):
                     # Already gone through all potential invokers, now randomly select one healthy idle server
                     import random
                     idle_pool = self.idle.values()
@@ -2468,7 +2472,7 @@ class SchedulerState:
 
         # debugging info
         logger.info('Home invoker index = %d', invoker_id)
-
+        temp_count = 0
         while True:
             if (
                 list(pool)[invoker_id].status ==  Status.running
@@ -2482,7 +2486,8 @@ class SchedulerState:
                 invoker_id = (invoker_id + step) % num_invokers
                 # debugging info
                 logger.info('Changing invoker index. Invoker index = %d', invoker_id)
-                if invoker_id == home_invoker_id:
+                temp_count += 1
+                if temp_count >= len(pool):
                     # Already gone through all potential invokers, now randomly select one healthy idle server
                     import random
                     idle_pool = self.idle.values()
