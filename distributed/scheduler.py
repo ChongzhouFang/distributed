@@ -2217,7 +2217,7 @@ class SchedulerState:
         logger.info("num_invokers = %s", str(num_invokers))
         
         
-        function, args, kwargs = ts.run_spec
+        function, args, kwargs = getattr(ts, 'run_spec', (None, None, None))
         function_name = str(funcname(function))[:1000]
         logger.info('Operation: %s', function_name)
 
@@ -2348,7 +2348,7 @@ class SchedulerState:
         logger.info("num_invokers = %s", str(num_invokers))
         
         
-        function, args, kwargs = ts.run_spec
+        function, args, kwargs = getattr(ts, 'run_spec', (None, None, None))
         function_name = str(funcname(function))[:1000]
         logger.info('Operation: %s', function_name)
 
@@ -2440,9 +2440,9 @@ class SchedulerState:
         # determine the home invoker id
         num_invokers = len(pool)
         logger.info("num_invokers = %s", str(num_invokers))
-        
-        
-        function, args, kwargs = ts.run_spec
+
+
+        function, args, kwargs = getattr(ts, 'run_spec', (None, None, None))
         function_name = str(funcname(function))[:1000]
         logger.info('Operation: %s', function_name)
 
