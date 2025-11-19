@@ -2245,10 +2245,13 @@ class SchedulerState:
                         logger.info("Warm start scheduling. Worker id: %s", ws.address)
                         break
                 if ws is None:
-                    # fallback in case the selected worker is not in the pool
                     selected_index = random.randint(0, len(pool) - 1)
+                    while list(pool)[selected_index].address in self.inv_freq[function_name].keys():
+                        selected_index = random.randint(0, len(pool) - 1)
+                    
                     ws = list(pool)[selected_index]
-                    logger.info("Fallback scheduling. Worker id: %s", ws.address)
+                    logger.info("Cold start scheduling. Worker id: %s", ws.address)
+                    _ = self.maintain_inv_freq(function_name, ws.address)
             # need a helper
             else:   
                 selected_index = random.randint(0, len(pool) - 1)
@@ -2384,10 +2387,13 @@ class SchedulerState:
                         logger.info("Warm start scheduling. Worker id: %s", ws.address)
                         break
                 if ws is None:
-                    # fallback in case the selected worker is not in the pool
                     selected_index = random.randint(0, len(pool) - 1)
+                    while list(pool)[selected_index].address in self.inv_freq[function_name].keys():
+                        selected_index = random.randint(0, len(pool) - 1)
+                    
                     ws = list(pool)[selected_index]
-                    logger.info("Fallback scheduling. Worker id: %s", ws.address)
+                    logger.info("Cold start scheduling. Worker id: %s", ws.address)
+                    _ = self.maintain_inv_freq(function_name, ws.address)
             # need a helper
             else:   
                 selected_index = random.randint(0, len(pool) - 1)
@@ -2486,10 +2492,13 @@ class SchedulerState:
                         logger.info("Warm start scheduling. Worker id: %s", ws.address)
                         break
                 if ws is None:
-                    # fallback in case the selected worker is not in the pool
                     selected_index = random.randint(0, len(pool) - 1)
+                    while list(pool)[selected_index].address in self.inv_freq[function_name].keys():
+                        selected_index = random.randint(0, len(pool) - 1)
+                    
                     ws = list(pool)[selected_index]
-                    logger.info("Fallback scheduling. Worker id: %s", ws.address)
+                    logger.info("Cold start scheduling. Worker id: %s", ws.address)
+                    _ = self.maintain_inv_freq(function_name, ws.address)
             # need a helper
             else:   
                 selected_index = random.randint(0, len(pool) - 1)

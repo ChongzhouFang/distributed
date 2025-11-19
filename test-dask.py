@@ -1,4 +1,3 @@
-#!/usr/bin/python
 import random
 import time
 from dask.distributed import Client, wait
@@ -46,9 +45,10 @@ WORKLOAD_FUNCS = {
 if __name__ == "__main__":
     # Connect to your scheduler (DoubleDip or vanilla)
     client = Client("tcp://155.98.38.148:8786")  # adjust as needed
+    # client = Client("tcp://172.25.229.11:8786")  # adjust as needed
 
-    NUM_USERS = 5
-    NUM_TASKS = 500
+    NUM_USERS = 50
+    NUM_TASKS = 5000
     USERS = [f"user-{i}" for i in range(NUM_USERS)]
     WORKLOAD_TYPES = list(WORKLOAD_FUNCS.keys())
 
@@ -60,6 +60,8 @@ if __name__ == "__main__":
     t0 = time.time()
 
     for i in range(NUM_TASKS):
+        if (i + 1) % 100 == 0:
+            print(f"Submitting task {i+1}/{NUM_TASKS}")
         user_id = random.choice(USERS)
         workload_type = random.choice(WORKLOAD_TYPES)
         func = WORKLOAD_FUNCS[workload_type]
