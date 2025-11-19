@@ -21,8 +21,8 @@ import weakref
 """"""""""""""""""""""""""""""""""""""""""
 "             Changes start.             "
 """"""""""""""""""""""""""""""""""""""""""
-from dask.utils import funcname
 import re
+from dask.utils import funcname
 """"""""""""""""""""""""""""""""""""""""""
 "             Changes end.               "
 """"""""""""""""""""""""""""""""""""""""""
@@ -147,7 +147,6 @@ if TYPE_CHECKING:
     from typing_extensions import TypeAlias
 
     from dask.highlevelgraph import HighLevelGraph
-
 
 
 
@@ -511,6 +510,16 @@ class WorkerState:
     _network_occ: float
     _occupancy_cache: float | None
 
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes start.             "
+    """"""""""""""""""""""""""""""""""""""""""
+    # Store the currently running function hosts
+    running_hosts: set[str]
+
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes end.               "
+    """"""""""""""""""""""""""""""""""""""""""
+
     #: Keys that may need to be fetched to this worker, and the number of tasks that need them.
     #: All tasks are currently in `memory` on a worker other than this one.
     #: Much like `processing`, this does not exactly reflect worker state:
@@ -844,7 +853,6 @@ class WorkerState:
         return self._occupancy_cache or self.scheduler._calc_occupancy(
             self.task_prefix_count, self._network_occ
         )
-
 
 @dataclasses.dataclass
 class ErredTask:
@@ -1378,15 +1386,6 @@ class TaskState:
     #: be rejected.
     run_id: int | None
 
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes start.             "
-    """"""""""""""""""""""""""""""""""""""""""
-    # Maintain user ID who submitted the task
-    userId: str
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes end.               "
-    """"""""""""""""""""""""""""""""""""""""""
-
     #: Cached hash of :attr:`~TaskState.client_key`
     _hash: int
 
@@ -1443,14 +1442,6 @@ class TaskState:
         self.annotations = {}
         self.erred_on = set()
         self.run_id = None
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""
-        # set user ID who submitted the task
-        self.userId = self.extractUserId()
-        """"""""""""""""""""""""""""""""""""""""""
-        "             Changes end.               "
-        """"""""""""""""""""""""""""""""""""""""""
         TaskState._instances.add(self)
 
     def __hash__(self) -> int:
@@ -1545,24 +1536,6 @@ class TaskState:
         chain of ~200+ tasks.
         """
         return recursive_to_dict(self, exclude=exclude, members=True)
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes start.             "
-    """"""""""""""""""""""""""""""""""""""""""
-    # Extract user ID from run_spec
-    # Assumes arguments contain "user_id" keyword argument
-    def extractUserId(self):
-        # Assuming the submitted task includes "user_id" in its kwargs
-        try:
-            function, args, kwargs = self.run_spec
-            logger.info("--------------------------------")
-            logger.info(f"Extracting user ID from task {self.key} with run_spec {self.run_spec}")
-            return kwargs.get("user_id", None)
-        except Exception:
-            return None
-    
-    """"""""""""""""""""""""""""""""""""""""""
-    "             Changes end.               "
-    """"""""""""""""""""""""""""""""""""""""""
 
 class Transition(NamedTuple):
     """An entry in :attr:`SchedulerState.transition_log`"""
@@ -1687,7 +1660,6 @@ class SchedulerState:
     #: Total number of transitions as of the previous call to check_idle()
     _idle_transition_counter: int
 
-
     #: Raise an error if the :attr:`transition_counter` ever reaches this value.
     #: This is meant for debugging only, to catch infinite recursion loops.
     #: In production, it should always be set to False.
@@ -1713,7 +1685,15 @@ class SchedulerState:
     MEMORY_REBALANCE_HALF_GAP: float
     #: distributed.scheduler.worker-saturation
     WORKER_SATURATION: float
-
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes start.             "
+    """"""""""""""""""""""""""""""""""""""""""
+    # Store an invocation frequency for load balancing
+    # Format: {<operation name>:{<node addr>:<#. of times being invocated with a time t>}}
+    inv_freq: dict[str, dict[str, int]]
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes end.               "
+    """"""""""""""""""""""""""""""""""""""""""
 
     __slots__ = tuple(__annotations__)
 
@@ -1748,8 +1728,6 @@ class SchedulerState:
         self.replicated_tasks = {
             ts for ts in self.tasks.values() if len(ts.who_has) > 1
         }
-
-
         self.computations = deque(
             maxlen=dask.config.get("distributed.diagnostics.computations.max-history")
         )
@@ -1772,7 +1750,6 @@ class SchedulerState:
             ws for ws in self.workers.values() if ws.status == Status.running
         }
         self.plugins = {} if not plugins else {_get_plugin_name(p): p for p in plugins}
-
 
         self.transition_log = deque(
             maxlen=dask.config.get("distributed.scheduler.transition-log-length")
@@ -1817,9 +1794,13 @@ class SchedulerState:
                 "`distributed.scheduler.worker-saturation` must be a float > 0; got "
                 + repr(self.WORKER_SATURATION)
             )
-
-        
-
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """"""""""""""""""""""""""""""""""""""""""
+        self.inv_freq = {}
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
     @property
     def memory(self) -> MemoryState:
         return MemoryState.sum(*(w.memory for w in self.workers.values()))
@@ -1847,7 +1828,48 @@ class SchedulerState:
             "idle": self.idle,
             "host_info": self.host_info,
         }
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes start.             "
+    """"""""""""""""""""""""""""""""""""""""""
+    def maintain_inv_freq(self, function_name: str, worker_addr: str) -> bool:
+        
+        # 1. If function name not in inv_freq, add a new entry
 
+        if function_name not in self.inv_freq.keys():
+            self.inv_freq[function_name] = {worker_addr: 1}
+
+        # 2. If node address is not in inv_freq[function], add a new entry for node address and decrement all counters
+
+        elif worker_addr not in self.inv_freq[function_name]:
+            self.inv_freq[function_name][worker_addr] = 2 # set to 2 so after decrement it will be 1
+            for f in self.inv_freq.keys():
+                for wa in self.inv_freq[f].keys():
+                    self.inv_freq[f][wa] -= 1
+                    if self.inv_freq[f][wa] < 0: # cap at 0
+                        self.inv_freq[f][wa] = 0
+
+        # 3. If worker_addr is in inv_freq[function]
+        
+        else:
+            # change the value HERE if invocation threshold should change
+            if self.inv_freq[function_name][worker_addr] + 1 > 2:
+                # This invocation will cause the threshold to be reached, hence do nothing and return false
+                return False
+            
+            else:
+                for f in self.inv_freq.keys():
+                    for wa in self.inv_freq[f].keys():
+                        if f == function_name and wa == worker_addr:
+                            self.inv_freq[f][wa] += 1   # selected invocation
+                        else:
+                            self.inv_freq[f][wa] -= 1
+                            if self.inv_freq[f][wa] < 0: # cap at 0
+                                self.inv_freq[f][wa] = 0
+            
+        return True
+    """"""""""""""""""""""""""""""""""""""""""
+    "             Changes end.               "
+    """"""""""""""""""""""""""""""""""""""""""
     def new_task(
         self,
         key: str,
@@ -2154,7 +2176,6 @@ class SchedulerState:
 
         return {}, {}, {}
 
-
     def decide_worker_rootish_queuing_disabled(
         self, ts: TaskState
     ) -> WorkerState | None:
@@ -2184,46 +2205,75 @@ class SchedulerState:
             assert math.isinf(self.WORKER_SATURATION)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes start.             "
-        """"""""""""""""""""""""""""""""""""""""""        
+        """"""""""""""""""""""""""""""""""""""""""
         pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
-        # Print pool workers
-        logger.info("###Available workers for root-ish task %s: %s", ts.key, [ws.address for ws in pool])
         
         ws = None
-        # Step 1: try to find an idle worker that already runs this user
-        logger.info("###Deciding worker for root-ish task %s", ts.key)
-        if getattr(ts, "userId", None):
-            for candidate_ws in pool:
-                # candidate_ws.processing holds TaskState objects currently running here
-                if any(getattr(t, "userId", None) == ts.userId for t in candidate_ws.processing):
-                    # idleness was already checked in pool selection
-                    ws = candidate_ws
-                    # Debug logging
-                    logger.info("Same-user worker %s selected", candidate_ws.address)
-                    break
 
-        # Step 2: if no same-user worker found, pick a least-user variability worker.
-        if not ws:
-            # Debug logging
-            logger.info("No userId associated with task %s or such node is not available", ts.key)
-            logger.info("Selecting least-user variable worker")
+        # determine the home invoker id
+        num_invokers = len(pool)
+        logger.info("num_invokers = %s", str(num_invokers))
+        
+        
+        function, args, kwargs = ts.run_spec
+        function_name = str(funcname(function))[:1000]
+        logger.info('Operation: %s', function_name)
 
-            min_user_var = float('inf')
-            for candidate_ws in pool:
-                # Calculate user variability on this worker
-                # Python set automatically handles uniqueness
-                user_ids = {getattr(t, "userId", None) for t in candidate_ws.processing}
-                user_var = len(user_ids)
+        # 1. this app not scheduled yet
 
-                if user_var < min_user_var:
-                    min_user_var = user_var
-                    ws = candidate_ws
-                    # Debug logging
-                    logger.info("Current least-user variable worker updated to %s", ws.address)
-            # Debug logging
-            logger.info("Least-user variable worker %s selected", ws.address)
+        if function_name not in self.inv_freq.keys():
+            selected_index = random.randint(0, len(pool) - 1)
+            ws = list(pool)[selected_index]
+            _ = self.maintain_inv_freq(function_name, ws.address)
+        
+        # 2. this app has been scheduled, randomly select one to avoid cold start
+        
+        else:
+            # randomly pick a warm start location
+            selected_worker_addr = random.choice(list(self.inv_freq[function_name]))
+
+            # does not cause the invocation to become a high-freq invocation
+            if self.maintain_inv_freq(function_name, selected_worker_addr):
+                
+                # find the worker
+                for i in range(len(pool)):
+                    if list(pool)[i].address == selected_worker_addr:
+                        ws = list(pool)[i]
+                        break
+            # need a helper
+            else:   
+                selected_index = random.randint(0, len(pool) - 1)
+                while list(pool)[selected_index].address in self.inv_freq[function_name].keys():
+                    selected_index = random.randint(0, len(pool) - 1)
+                
+                ws = list(pool)[selected_index]
+                _ = self.maintain_inv_freq(function_name, ws.address)
+
+        ### Start of the original code from dask.distributed
+        # tg = ts.group
+        # lws = tg.last_worker
+        # if (
+        #     lws
+        #     and tg.last_worker_tasks_left
+        #     and lws.status == Status.running
+        #     and self.workers.get(lws.address) is lws
+        # ):
+        #     ws = lws
+        # else:
+        #     # Last-used worker is full, unknown, retiring, or paused;
+        #     # pick a new worker for the next few tasks
+        #     ws = min(pool, key=partial(self.worker_objective, ts))
+        #     tg.last_worker_tasks_left = math.floor(
+        #         (len(tg) / self.total_nthreads) * ws.nthreads
+        #     )
+
+        # # Record `last_worker`, or clear it on the final task
+        # tg.last_worker = (
+        #     ws if tg.states["released"] + tg.states["waiting"] > 1 else None
+        # )
+        # tg.last_worker_tasks_left -= 1
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
@@ -2231,11 +2281,22 @@ class SchedulerState:
         if self.validate and ws is not None:
             assert self.workers.get(ws.address) is ws
             assert ws in self.running, (ws, self.running)
+        
+        
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """""""""""""""""""""""""""""""""""""""""" 
+        # Debugging info
+        # logger.info("inv_freq: %s", str(self.inv_freq))
+        logger.info("Worker selected. Worker id: %s", ws.address)
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
         return ws
 
     def decide_worker_rootish_queuing_enabled(self, 
                                               # Changes start.
-                                              ts: TaskState
+                                              ts: TaskState=None
                                               # Changes end.
                                               ) -> WorkerState | None:
         """Pick a worker for a runnable root-ish task, if not all are busy.
@@ -2279,48 +2340,75 @@ class SchedulerState:
         pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
-        # Print pool workers
-        logger.info("###Available workers for root-ish task %s: %s", ts.key, [ws.address for ws in pool])
         
         ws = None
-        # Step 1: try to find an idle worker that already runs this user
-        logger.info("###Deciding worker for root-ish task %s", ts.key)
-        if getattr(ts, "userId", None):
-            for candidate_ws in pool:
-                # candidate_ws.processing holds TaskState objects currently running here
-                if any(getattr(t, "userId", None) == ts.userId for t in candidate_ws.processing):
-                    # idleness was already checked in pool selection
-                    ws = candidate_ws
-                    # Debug logging
-                    logger.info("Same-user worker %s selected", candidate_ws.address)
-                    break
 
-        # Step 2: if no same-user worker found, pick a least-user variability worker.
-        if not ws:
-            # Debug logging
-            logger.info("No userId associated with task %s or such node is not available", ts.key)
-            logger.info("Selecting least-user variable worker")
+        # determine the home invoker id
+        num_invokers = len(pool)
+        logger.info("num_invokers = %s", str(num_invokers))
+        
+        
+        function, args, kwargs = ts.run_spec
+        function_name = str(funcname(function))[:1000]
+        logger.info('Operation: %s', function_name)
 
-            min_user_var = float('inf')
-            for candidate_ws in pool:
-                # Calculate user variability on this worker
-                # Python set automatically handles uniqueness
-                user_ids = {getattr(t, "userId", None) for t in candidate_ws.processing}
-                user_var = len(user_ids)
+        # 1. this app not scheduled yet
 
-                if user_var < min_user_var:
-                    min_user_var = user_var
-                    ws = candidate_ws
-                    # Debug logging
-                    logger.info("Current least-user variable worker updated to %s", ws.address)
-            # Debug logging
-            logger.info("Least-user variable worker %s selected", ws.address)
+        if function_name not in self.inv_freq.keys():
+            selected_index = random.randint(0, len(pool) - 1)
+            ws = list(pool)[selected_index]
+            _ = self.maintain_inv_freq(function_name, ws.address)
+        
+        # 2. this app has been scheduled, randomly select one to avoid cold start
+        
+        else:
+            # randomly pick a warm start location
+            selected_worker_addr = random.choice(list(self.inv_freq[function_name]))
+
+            # does not cause the invocation to become a high-freq invocation
+            if self.maintain_inv_freq(function_name, selected_worker_addr):
+                
+                # find the worker
+                for i in range(len(pool)):
+                    if list(pool)[i].address == selected_worker_addr:
+                        ws = list(pool)[i]
+                        break
+            # need a helper
+            else:   
+                selected_index = random.randint(0, len(pool) - 1)
+                while list(pool)[selected_index].address in self.inv_freq[function_name].keys():
+                    selected_index = random.randint(0, len(pool) - 1)
+                
+                ws = list(pool)[selected_index]
+                _ = self.maintain_inv_freq(function_name, ws.address)
+        ### Start of the original code from dask.distributed
+        # Just pick the least busy worker.
+        # NOTE: this will lead to worst-case scheduling with regards to co-assignment.
+        # ws = min(
+        #     self.idle_task_count,
+        #     key=lambda ws: len(ws.processing) / ws.nthreads,
+        # )
+        # if self.validate:
+        #     assert not _worker_full(ws, self.WORKER_SATURATION), (
+        #         ws,
+        #         _task_slots_available(ws, self.WORKER_SATURATION),
+        #     )
+        #     assert ws in self.running, (ws, self.running)
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
         if self.validate and ws is not None:
             assert self.workers.get(ws.address) is ws
             assert ws in self.running, (ws, self.running)
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """""""""""""""""""""""""""""""""""""""""" 
+        # Debugging info
+        # logger.info("inv_freq: %s", str(self.inv_freq))
+        logger.info("Worker selected. Worker id: %s", ws.address)
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
         return ws
 
     def decide_worker_non_rootish(self, ts: TaskState) -> WorkerState | None:
@@ -2346,48 +2434,108 @@ class SchedulerState:
         pool = self.idle.values() if self.idle else self.running
         if not pool:
             return None
-        # Print pool workers
-        logger.info("###Available workers for non-root-ish task %s: %s", ts.key, [ws.address for ws in pool])
-
+        
         ws = None
-        # Step 1: try to find an idle worker that already runs this user
-        logger.info("###Deciding worker for non-root-ish task %s", ts.key)
-        if getattr(ts, "userId", None):
-            for candidate_ws in pool:
-                # candidate_ws.processing holds TaskState objects currently running here
-                if any(getattr(t, "userId", None) == ts.userId for t in candidate_ws.processing):
-                    # idleness was already checked in pool selection
-                    ws = candidate_ws
-                    # Debug logging
-                    logger.info("Same-user worker %s selected", candidate_ws.address)
-                    break
 
-        # Step 2: if no same-user worker found, pick a least-user variability worker.
-        if not ws:
-            # Debug logging
-            logger.info("No userId associated with task %s or such node is not available", ts.key)
-            logger.info("Selecting least-user variable worker")
+        # determine the home invoker id
+        num_invokers = len(pool)
+        logger.info("num_invokers = %s", str(num_invokers))
+        
+        
+        function, args, kwargs = ts.run_spec
+        function_name = str(funcname(function))[:1000]
+        logger.info('Operation: %s', function_name)
 
-            min_user_var = float('inf')
-            for candidate_ws in pool:
-                # Calculate user variability on this worker
-                # Python set automatically handles uniqueness
-                user_ids = {getattr(t, "userId", None) for t in candidate_ws.processing}
-                user_var = len(user_ids)
+        # 1. this app not scheduled yet
 
-                if user_var < min_user_var:
-                    min_user_var = user_var
-                    ws = candidate_ws
-                    # Debug logging
-                    logger.info("Current least-user variable worker updated to %s", ws.address)
-            # Debug logging
-            logger.info("Least-user variable worker %s selected", ws.address)
+        if function_name not in self.inv_freq.keys():
+            selected_index = random.randint(0, len(pool) - 1)
+            ws = list(pool)[selected_index]
+            _ = self.maintain_inv_freq(function_name, ws.address)
+        
+        # 2. this app has been scheduled, randomly select one to avoid cold start
+        
+        else:
+            # randomly pick a warm start location
+            selected_worker_addr = random.choice(list(self.inv_freq[function_name]))
+
+            # does not cause the invocation to become a high-freq invocation
+            if self.maintain_inv_freq(function_name, selected_worker_addr):
+                
+                # find the worker
+                for i in range(len(pool)):
+                    if list(pool)[i].address == selected_worker_addr:
+                        ws = list(pool)[i]
+                        break
+            # need a helper
+            else:   
+                selected_index = random.randint(0, len(pool) - 1)
+                while list(pool)[selected_index].address in self.inv_freq[function_name].keys():
+                    selected_index = random.randint(0, len(pool) - 1)
+                
+                ws = list(pool)[selected_index]
+                _ = self.maintain_inv_freq(function_name, ws.address)
+
+        
+        ### Start of the original code from dask.distributed
+        # valid_workers = self.valid_workers(ts)
+        # if valid_workers is None and len(self.running) < len(self.workers):
+        #     # If there were no restrictions, `valid_workers()` didn't subset by
+        #     # `running`.
+        #     valid_workers = self.running
+
+        # if ts.dependencies or valid_workers is not None:
+        #     ws = decide_worker(
+        #         ts,
+        #         self.running,
+        #         valid_workers,
+        #         partial(self.worker_objective, ts),
+        #     )
+        # else:
+            
+        #     # TODO if `is_rootish` would always return True for tasks without
+        #     # dependencies, we could remove all this logic. The rootish assignment logic
+        #     # would behave more or less the same as this, maybe without guaranteed
+        #     # round-robin though? This path is only reachable when `ts` doesn't have
+        #     # dependencies, but its group is also smaller than the cluster.
+
+        #     # Fastpath when there are no related tasks or restrictions
+        #     worker_pool = self.idle or self.workers
+        #     # FIXME idle and workers are SortedDict's declared as dicts
+        #     #       because sortedcontainers is not annotated
+        #     wp_vals = cast("Sequence[WorkerState]", worker_pool.values())
+        #     n_workers = len(wp_vals)
+        #     if n_workers < 20:  # smart but linear in small case
+        #         ws = min(wp_vals, key=operator.attrgetter("occupancy"))
+        #         assert ws
+        #         if ws.occupancy == 0:
+        #             # special case to use round-robin; linear search
+        #             # for next worker with zero occupancy (or just
+        #             # land back where we started).
+        #             start = self.n_tasks % n_workers
+        #             for i in range(n_workers):
+        #                 wp_i = wp_vals[(i + start) % n_workers]
+        #                 if wp_i.occupancy == 0:
+        #                     ws = wp_i
+        #                     break
+        #     else:  # dumb but fast in large case
+        #         ws = wp_vals[self.n_tasks % n_workers]
+
         """"""""""""""""""""""""""""""""""""""""""
         "             Changes end.               "
         """"""""""""""""""""""""""""""""""""""""""
         if self.validate and ws is not None:
             assert self.workers.get(ws.address) is ws
             assert ws in self.running, (ws, self.running)
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes start.             "
+        """""""""""""""""""""""""""""""""""""""""" 
+        # Debugging info
+        # logger.info("inv_freq: %s", str(self.inv_freq))
+        logger.info("Worker selected. Worker id: %s", ws.address)
+        """"""""""""""""""""""""""""""""""""""""""
+        "             Changes end.               "
+        """"""""""""""""""""""""""""""""""""""""""
         return ws
 
     def transition_waiting_processing(self, key: str, stimulus_id: str) -> RecsMsgs:
